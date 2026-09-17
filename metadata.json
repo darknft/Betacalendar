@@ -1,0 +1,6 @@
+{
+  "name": "TimeSync - Coordinador de Traslape de Horarios",
+  "description": "ClickUp styled cross-timezone team schedule overlap coordinator with UTC normalization, person avatar badges, and Google Calendar scheduling.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
