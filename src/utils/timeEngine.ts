@@ -1,4 +1,4 @@
-import { Member, OverlapSlot, OverlapWindow, TimeSlot } from '../types';
+import { Member, MeetingSlot, OverlapSlot, OverlapWindow, TimeSlot } from '../types';
 
 /**
  * TimeSync Multizone Time Calculation Engine
@@ -137,41 +137,109 @@ export function isMemberBusyAtInterval(member: Member, startIsoUtc: string, endI
 }
 
 /**
- * Checks if a member is working and not busy at a given UTC time slot
+ * Formats a 24-hour integer into a 12-hour AM/PM string (e.g. 8 -> "8:00 am", 19 -> "7:00 pm")
+ * As explicitly requested: "8:00am o 7:00 pm no quiero horas militar"
+ */
+export function formatHourAmPm(hour24: number): string {
+  const h = ((hour24 % 24) + 24) % 24;
+  if (h === 0) return '12:00 am';
+  if (h < 12) return `${h}:00 am`;
+  if (h === 12) return '12:00 pm';
+  return `${h - 12}:00 pm`;
+}
+
+/**
+ * Formats a "HH:mm" 24-hour time string into a 12-hour AM/PM string (e.g. "08:00" -> "8:00 am", "17:30" -> "5:30 pm")
+ */
+export function formatTime24to12(time24: string): string {
+  if (!time24) return '';
+  const parts = time24.split(':');
+  const h = parseInt(parts[0], 10);
+  const m = parts[1] || '00';
+  if (isNaN(h)) return time24;
+  const period = h >= 12 ? 'pm' : 'am';
+  const displayH = h % 12 === 0 ? 12 : h % 12;
+  return `${displayH}:${m} ${period}`;
+}
+
+/**
+ * Returns all active meeting slots configured for a member, falling back to legacy single start/end or work hours.
+ */
+export function getMemberMeetingSlots(member: Member): MeetingSlot[] {
+  if (member.meetingSlots && member.meetingSlots.length > 0) {
+    return member.meetingSlots;
+  }
+  if (member.meetingStart && member.meetingEnd) {
+    return [{ start: member.meetingStart, end: member.meetingEnd }];
+  }
+  return [{ start: member.workStart, end: member.workEnd }];
+}
+
+/**
+ * Formats all meeting slots for a member in a human-readable 12-hour string
+ * (e.g. "8:00 am - 9:00 am, 5:00 pm - 10:00 pm")
+ */
+export function formatMeetingSlotsSummary(member: Member): string {
+  const slots = getMemberMeetingSlots(member);
+  if (!slots || slots.length === 0) return 'Sin franja definida';
+  return slots
+    .map((s) => `${formatTime24to12(s.start)} - ${formatTime24to12(s.end)}`)
+    .join(', ');
+}
+
+/**
+ * Checks if a member is available and not busy at a given UTC time slot.
+ * Evaluates against all designated meeting slots (meetingSlots or legacy meetingStart/meetingEnd)
+ * or general work hours (workStart & workEnd).
  */
 export function isMemberAvailableAtSlot(
   member: Member,
   slotStartIsoUtc: string,
-  slotEndIsoUtc: string
+  slotEndIsoUtc: string,
+  useMeetingHours: boolean = true
 ): boolean {
   // Check if busy first
   if (isMemberBusyAtInterval(member, slotStartIsoUtc, slotEndIsoUtc)) {
     return false;
   }
 
-  // Determine the member's local time at slotStart
   const slotDateInMemberTz = getDateKeyInTimezone(slotStartIsoUtc, member.timeZone);
-  const memberWorkStartUtc = localTimeToUtcIso(slotDateInMemberTz, member.workStart, member.timeZone);
-  const memberWorkEndUtc = localTimeToUtcIso(slotDateInMemberTz, member.workEnd, member.timeZone);
-
   const slotStartMs = new Date(slotStartIsoUtc).getTime();
   const slotEndMs = new Date(slotEndIsoUtc).getTime();
-  const workStartMs = new Date(memberWorkStartUtc).getTime();
-  const workEndMs = new Date(memberWorkEndUtc).getTime();
 
-  // Normal day shift (e.g. 08:00 to 17:00)
-  if (workStartMs < workEndMs) {
-    return slotStartMs >= workStartMs && slotEndMs <= workEndMs;
+  if (useMeetingHours) {
+    const slots = getMemberMeetingSlots(member);
+    // Member is considered available for meeting if this time slot falls within ANY of their meeting slots
+    return slots.some((s) => {
+      const memberStartUtc = localTimeToUtcIso(slotDateInMemberTz, s.start, member.timeZone);
+      const memberEndUtc = localTimeToUtcIso(slotDateInMemberTz, s.end, member.timeZone);
+      const rangeStartMs = new Date(memberStartUtc).getTime();
+      const rangeEndMs = new Date(memberEndUtc).getTime();
+
+      if (rangeStartMs < rangeEndMs) {
+        return slotStartMs >= rangeStartMs && slotEndMs <= rangeEndMs;
+      }
+      // Overnight shift (e.g. 22:00 to 02:00)
+      return (slotStartMs >= rangeStartMs) || (slotEndMs <= rangeEndMs);
+    });
   }
 
-  // Overnight shift (e.g. 22:00 to 06:00)
-  return (slotStartMs >= workStartMs) || (slotEndMs <= workEndMs);
+  // Work hours check
+  const memberStartUtc = localTimeToUtcIso(slotDateInMemberTz, member.workStart, member.timeZone);
+  const memberEndUtc = localTimeToUtcIso(slotDateInMemberTz, member.workEnd, member.timeZone);
+  const rangeStartMs = new Date(memberStartUtc).getTime();
+  const rangeEndMs = new Date(memberEndUtc).getTime();
+
+  if (rangeStartMs < rangeEndMs) {
+    return slotStartMs >= rangeStartMs && slotEndMs <= rangeEndMs;
+  }
+  return (slotStartMs >= rangeStartMs) || (slotEndMs <= rangeEndMs);
 }
 
 /**
  * Calculates weekly dates starting from Monday of the current reference date
  */
-export function getWeekDates(referenceDate: Date = new Date()): { dateStr: string; dayName: string; shortDate: string }[] {
+export function getWeekDates(referenceDate: Date = new Date()): { dateStr: string; dayName: string; shortDate: string; dayNumber: number; calendarLabel: string }[] {
   const d = new Date(referenceDate);
   const day = d.getDay(); // 0 is Sunday, 1 is Monday...
   const diffToMonday = day === 0 ? -6 : 1 - day; // Distance to Monday
@@ -188,10 +256,14 @@ export function getWeekDates(referenceDate: Date = new Date()): { dateStr: strin
     current.setDate(monday.getDate() + i);
     const dateStr = current.toISOString().substring(0, 10);
     const shortDate = `${current.getDate()}/${current.getMonth() + 1}`;
+    const dayNumber = current.getDate();
+    const calendarLabel = `${dayNamesEs[i]} ${dayNumber}`;
     week.push({
       dateStr,
       dayName: dayNamesEs[i],
-      shortDate
+      shortDate,
+      dayNumber,
+      calendarLabel
     });
   }
 
@@ -209,7 +281,7 @@ export function calculateWeeklyOverlapMatrix(
   referenceDate: Date = new Date(),
   stepMinutes: number = 60
 ): {
-  days: { dateStr: string; dayName: string; shortDate: string }[];
+  days: { dateStr: string; dayName: string; shortDate: string; dayNumber: number; calendarLabel: string }[];
   hours: number[];
   slotsByDayAndHour: Map<string, OverlapSlot>;
   fullOverlapWindows: OverlapWindow[];

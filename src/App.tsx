@@ -6,11 +6,11 @@ import {
   MemberDirectory 
 } from './components/MemberDirectory';
 import { 
-  WeeklyMatrix 
-} from './components/WeeklyMatrix';
+  GanttWeeklyView 
+} from './components/GanttWeeklyView';
 import { 
-  DailyTimeline 
-} from './components/DailyTimeline';
+  GanttDailyView 
+} from './components/GanttDailyView';
 import { 
   BestSlotsWidget 
 } from './components/BestSlotsWidget';
@@ -27,6 +27,9 @@ import {
   CalendarBusyOverlay 
 } from './components/CalendarBusyOverlay';
 import { 
+  AuthModal 
+} from './components/AuthModal';
+import { 
   Member, 
   OverlapSlot, 
   TimeSlot 
@@ -40,8 +43,10 @@ import {
   Users, 
   ShieldCheck, 
   Sparkles, 
-  Info,
-  CheckCircle2
+  CheckCircle2,
+  CalendarRange,
+  CalendarDays,
+  KeyRound
 } from 'lucide-react';
 import { safeJsonParse } from './utils/security';
 
@@ -72,20 +77,26 @@ export default function App() {
   );
 
   // Active user session (defaults to Sofia Morales - Admin)
-  const [currentUser, setCurrentUser] = useState<Member>(() => 
+  const [currentUser, setCurrentUser] = useState<Member | null>(() => 
     members.find((m) => m.role === 'admin') || members[0]
   );
 
   // Active projection timezone
-  const [activeTimeZone, setActiveTimeZone] = useState<string>(defaultTz);
+  const [activeTimeZone, setActiveTimeZone] = useState<string>(
+    currentUser?.timeZone || defaultTz
+  );
 
   // Reference date for navigation
   const [referenceDate, setReferenceDate] = useState<Date>(new Date());
 
-  // Active navigation view
-  const [activeView, setActiveView] = useState<'matrix' | 'timeline' | 'team'>('matrix');
+  // ONLY TWO MAIN TABS AS REQUESTED: 'gantt' and 'team'
+  const [activeTab, setActiveTab] = useState<'gantt' | 'team'>('gantt');
+
+  // For Gantt view: only two sub-views: 'semanal' and 'diaria'
+  const [ganttSubView, setGanttSubView] = useState<'semanal' | 'diaria'>('semanal');
 
   // Modals state
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isDevSecModalOpen, setIsDevSecModalOpen] = useState(false);
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [memberToEdit, setMemberToEdit] = useState<Member | null>(null);
@@ -96,6 +107,14 @@ export default function App() {
   const [isBusyOverlayOpen, setIsBusyOverlayOpen] = useState(false);
   const [memberForBusy, setMemberForBusy] = useState<Member | null>(null);
 
+  // Toast notification for timezone or login feedback
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
   // Synchronize members to localStorage safely
   useEffect(() => {
     if (typeof localStorage !== 'undefined') {
@@ -105,11 +124,13 @@ export default function App() {
 
   // Keep currentUser state in sync if member updated
   useEffect(() => {
-    const updated = members.find((m) => m.id === currentUser.id);
-    if (updated) {
-      setCurrentUser(updated);
+    if (currentUser) {
+      const updated = members.find((m) => m.id === currentUser.id);
+      if (updated) {
+        setCurrentUser(updated);
+      }
     }
-  }, [members, currentUser.id]);
+  }, [members, currentUser?.id]);
 
   // Member selection handlers
   const handleToggleMember = (id: string) => {
@@ -135,6 +156,16 @@ export default function App() {
       }
       return [...prev, member];
     });
+
+    // If the saved member is the current user, update their active timezone
+    if (currentUser?.id === member.id) {
+      setCurrentUser(member);
+      setActiveTimeZone(member.timeZone);
+      showToast(`Perfil actualizado. Horarios proyectados en tu zona local: ${member.timeZone}`);
+    } else {
+      showToast(`Datos del colaborador ${member.firstName} guardados exitosamente.`);
+    }
+
     // Auto-select newly created member
     if (!selectedMemberIds.includes(member.id)) {
       setSelectedMemberIds((prev) => [...prev, member.id]);
@@ -146,9 +177,30 @@ export default function App() {
     setIsMemberModalOpen(true);
   };
 
+  const handleOpenMyProfile = () => {
+    if (currentUser) {
+      setMemberToEdit(currentUser);
+      setIsMemberModalOpen(true);
+    } else {
+      setIsAuthModalOpen(true);
+    }
+  };
+
   const handleAddNewMember = () => {
     setMemberToEdit(null);
     setIsMemberModalOpen(true);
+  };
+
+  // Auth handlers
+  const handleLogin = (member: Member) => {
+    setCurrentUser(member);
+    setActiveTimeZone(member.timeZone);
+    showToast(`¡Hola ${member.firstName}! Visualizando el calendario en tu hora local: ${member.timeZone}`);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    showToast('Sesión cerrada correctamente.');
   };
 
   // Busy slot management
@@ -164,9 +216,10 @@ export default function App() {
     if (memberForBusy && memberForBusy.id === memberId) {
       setMemberForBusy((prev) => (prev ? { ...prev, busySlots: updatedSlots } : null));
     }
+    showToast('Bloqueos de agenda actualizados.');
   };
 
-  // Scheduling handler
+  // Scheduling handler (opens Google Calendar / Quick schedule modal)
   const handleSelectSlotToSchedule = (slot: OverlapSlot) => {
     setSelectedSlotToSchedule(slot);
     setIsScheduleModalOpen(true);
@@ -176,16 +229,29 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#f8f9fb] text-gray-900 flex flex-col font-sans selection:bg-[#acc917]/40 selection:text-[#141f5b]">
-      {/* Top ClickUp-style Header */}
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-5 right-5 z-50 bg-[#141f5b] text-white px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 text-xs font-semibold animate-in slide-in-from-bottom-3 border border-[#acc917]/30">
+          <CheckCircle2 className="w-4 h-4 text-[#acc917] shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Top Header with 2 Tabs and Member Authentication */}
       <Header
         currentUser={currentUser}
         allMembers={members}
-        onSwitchUser={setCurrentUser}
+        onSwitchUser={handleLogin}
         activeTimeZone={activeTimeZone}
         onChangeTimeZone={setActiveTimeZone}
         onOpenDevSecModal={() => setIsDevSecModalOpen(true)}
-        activeView={activeView}
-        onChangeView={setActiveView}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onOpenMyProfile={handleOpenMyProfile}
+        onLogout={handleLogout}
+        activeTab={activeTab}
+        onChangeTab={setActiveTab}
+        ganttSubView={ganttSubView}
+        onChangeGanttSubView={setGanttSubView}
         selectedCount={selectedMemberIds.length}
         totalCount={members.length}
       />
@@ -193,120 +259,187 @@ export default function App() {
       {/* Main Workspace Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
         
-        {/* Workspace Title & Actions Bar */}
+        {/* Workspace Quick Actions & Status Banner */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-gray-200 rounded-2xl p-4 shadow-xs">
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-base font-extrabold text-gray-900">
-                Coordinador de Traslape de Horarios Multizona
+                {activeTab === 'gantt' 
+                  ? `Vista Gantt - ${ganttSubView === 'semanal' ? 'Calendario Semanal' : 'Calendario Diario'}`
+                  : 'Directorio de Equipo y Preferencias'}
               </span>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-mono bg-[#acc917]/25 text-[#141f5b] border border-[#acc917] font-bold">
-                UTC Normalizado
+                12h AM/PM
               </span>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-mono bg-blue-50 text-[#141f5b] border border-blue-200 font-bold">
-                DevSec Hardened
+                Zona: {activeTimeZone.split('/')[1] || activeTimeZone}
               </span>
             </div>
             <p className="text-xs text-gray-500">
-              Cálculo algorítmico de intersección horaria <span className="font-mono text-[#141f5b] font-semibold">[max(start), min(end)]</span> con visualización clara de participantes coincidentes y enlaces directos a Google Calendar.
+              Visualización con avatares, banderas y coincidencias de disponibilidad. Verde: todos coinciden. Amarillo: 1 miembro en discrepancia (borde rojo). Borde rojo: nadie coincide.
             </p>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => setIsDevSecModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 text-xs font-semibold text-gray-700 transition-colors cursor-pointer shadow-2xs"
-            >
-              <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span>Reporte Pentest</span>
-            </button>
+            {currentUser && (
+              <button
+                onClick={handleOpenMyProfile}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-xs font-bold text-[#141f5b] transition-colors cursor-pointer shadow-2xs"
+              >
+                <span>Editar Mi Horario</span>
+              </button>
+            )}
 
             <button
-              onClick={handleAddNewMember}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#141f5b] hover:bg-[#1a2875] text-white text-xs font-semibold transition-colors shadow-xs cursor-pointer"
+              onClick={() => setIsAuthModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 text-xs font-semibold text-gray-700 transition-colors cursor-pointer shadow-2xs"
             >
-              <Users className="w-3.5 h-3.5" />
-              <span>Gestionar Equipo</span>
+              <KeyRound className="w-3.5 h-3.5 text-[#141f5b]" />
+              <span>Acceso de Miembros</span>
             </button>
           </div>
         </div>
 
-        {/* AI & Heuristic Scheduling Recommendations Widget */}
-        <BestSlotsWidget
-          members={members}
-          selectedMemberIds={selectedMemberIds}
-          activeTimeZone={activeTimeZone}
-          onOpenScheduleModal={handleSelectSlotToSchedule}
-        />
+        {/* TAB 1: VISTA GANTT (with Semanal & Diaria sub-views) */}
+        {activeTab === 'gantt' && (
+          <div className="space-y-4">
+            {/* View Switcher Controls Bar */}
+            <div className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-2 px-3 shadow-2xs">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  Tipo de Vista:
+                </span>
+                <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+                  <button
+                    onClick={() => setGanttSubView('semanal')}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                      ganttSubView === 'semanal'
+                        ? 'bg-[#141f5b] text-white shadow-xs'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <CalendarRange className="w-3.5 h-3.5" />
+                    <span>Semanal (Lunes 14, Martes 15...)</span>
+                  </button>
+                  <button
+                    onClick={() => setGanttSubView('diaria')}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                      ganttSubView === 'diaria'
+                        ? 'bg-[#141f5b] text-white shadow-xs'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <CalendarDays className="w-3.5 h-3.5" />
+                    <span>Diaria (Horas AM/PM)</span>
+                  </button>
+                </div>
+              </div>
 
-        {/* Primary View Router */}
-        {activeView === 'matrix' && (
-          <WeeklyMatrix
-            members={members}
-            selectedMemberIds={selectedMemberIds}
-            activeTimeZone={activeTimeZone}
-            referenceDate={referenceDate}
-            onChangeReferenceDate={setReferenceDate}
-            onSelectSlotToSchedule={handleSelectSlotToSchedule}
-          />
+              <div className="text-xs text-gray-500 hidden sm:block">
+                Mostrando horas en formato <strong>12 Horas (AM / PM)</strong>
+              </div>
+            </div>
+
+            {/* Render Weekly Calendar View */}
+            {ganttSubView === 'semanal' && (
+              <GanttWeeklyView
+                members={members}
+                selectedMemberIds={selectedMemberIds}
+                activeTimeZone={activeTimeZone}
+                referenceDate={referenceDate}
+                onChangeReferenceDate={setReferenceDate}
+                onSelectSlotToSchedule={handleSelectSlotToSchedule}
+              />
+            )}
+
+            {/* Render Daily Calendar View */}
+            {ganttSubView === 'diaria' && (
+              <GanttDailyView
+                members={members}
+                selectedMemberIds={selectedMemberIds}
+                activeTimeZone={activeTimeZone}
+                referenceDate={referenceDate}
+                onChangeReferenceDate={setReferenceDate}
+                onSelectSlotToSchedule={handleSelectSlotToSchedule}
+              />
+            )}
+          </div>
         )}
 
-        {activeView === 'timeline' && (
-          <DailyTimeline
-            members={members}
-            selectedMemberIds={selectedMemberIds}
-            activeTimeZone={activeTimeZone}
-            referenceDate={referenceDate}
-            onChangeReferenceDate={setReferenceDate}
-            onSelectSlotToSchedule={handleSelectSlotToSchedule}
-          />
+        {/* TAB 2: EQUIPO (with Recomendación Inteligente container & Team Directory) */}
+        {activeTab === 'team' && (
+          <div className="space-y-6">
+            {/* As requested: "borra la Matriz Semanal de translape de esto solo conservaras el contenedor de Recomendación Inteligente de Traslape que deberas moverlo a la tab de Vista Custom en vez de Vista Gantt." */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#acc917]" />
+                <h3 className="font-extrabold text-sm text-gray-900 uppercase tracking-wider">
+                  Recomendación Inteligente de Traslape
+                </h3>
+              </div>
+
+              <BestSlotsWidget
+                members={members}
+                selectedMemberIds={selectedMemberIds}
+                activeTimeZone={activeTimeZone}
+                onOpenScheduleModal={handleSelectSlotToSchedule}
+              />
+            </div>
+
+            {/* Member Directory and Schedule Management */}
+            <div className="space-y-2 pt-2 border-t border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="font-extrabold text-sm text-gray-900 uppercase tracking-wider">
+                  Colaboradores del Equipo y Credenciales de Acceso
+                </h3>
+              </div>
+
+              <MemberDirectory
+                members={members}
+                selectedMemberIds={selectedMemberIds}
+                onToggleMember={handleToggleMember}
+                onSelectAll={handleSelectAll}
+                onDeselectAll={handleDeselectAll}
+                currentUser={currentUser || members[0]}
+                activeTimeZone={activeTimeZone}
+                onEditMember={handleOpenEditMember}
+                onAddNewMember={handleAddNewMember}
+                onOpenManageBusy={handleOpenManageBusy}
+              />
+            </div>
+          </div>
         )}
 
-        {activeView === 'team' && (
-          <MemberDirectory
-            members={members}
-            selectedMemberIds={selectedMemberIds}
-            onToggleMember={handleToggleMember}
-            onSelectAll={handleSelectAll}
-            onDeselectAll={handleDeselectAll}
-            currentUser={currentUser}
-            activeTimeZone={activeTimeZone}
-            onEditMember={handleOpenEditMember}
-            onAddNewMember={handleAddNewMember}
-            onOpenManageBusy={handleOpenManageBusy}
-          />
-        )}
-
-        {/* Explanatory Info Card: Algorithm & Security Architecture */}
+        {/* Legend / Status Helper Card */}
         <div className="bg-white border border-gray-200 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-gray-600 shadow-xs">
-          <div className="space-y-1.5">
-            <span className="font-bold text-gray-900 flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-[#141f5b]" />
-              Normalización Semanal UTC
-            </span>
-            <p className="text-gray-500">
-              Cada jornada se expande a marcas de tiempo universales absolutas en UTC considerando el huso IANA nativo de cada colaborador y cambios de horario (DST).
-            </p>
+          <div className="flex items-start gap-3">
+            <div className="w-5 h-5 rounded-md bg-emerald-100 border border-emerald-400 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold text-gray-900 block">Verde: Coincidencia Total</span>
+              <p className="text-gray-500 text-[11px]">
+                Todos los colaboradores seleccionados están disponibles. Permite agendar reunión de inmediato en Google Calendar.
+              </p>
+            </div>
           </div>
 
-          <div className="space-y-1.5">
-            <span className="font-bold text-gray-900 flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-emerald-600" />
-              Intersección y Bloqueo de Horas
-            </span>
-            <p className="text-gray-500">
-              El motor evalúa ventanas de coincidencia excluyendo reuniones previas. Cuando <code className="text-[#141f5b] font-mono font-semibold bg-gray-100 px-1 py-0.5 rounded">T_start &lt; T_end</code>, se confirma la franja de disponibilidad compatible.
-            </p>
+          <div className="flex items-start gap-3">
+            <div className="w-5 h-5 rounded-md bg-amber-100 border border-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold text-gray-900 block">Amarillo: 1 Discrepancia</span>
+              <p className="text-gray-500 text-[11px]">
+                Exactamente 1 miembro no coincide en la franja. Ese miembro se destaca con borde rojo en su ficha.
+              </p>
+            </div>
           </div>
 
-          <div className="space-y-1.5">
-            <span className="font-bold text-gray-900 flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#acc917]" />
-              DevSecOps & Supabase RLS
-            </span>
-            <p className="text-gray-500">
-              Protegido contra XSS, ReDoS, Prototype Pollution y manipulación de parámetros. Políticas RLS para salvaguardar la privacidad de agenda entre colaboradores.
-            </p>
+          <div className="flex items-start gap-3">
+            <div className="w-5 h-5 rounded-md bg-red-50 border-2 border-red-300 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold text-gray-900 block">Borde Rojo: Sin Coincidencia</span>
+              <p className="text-gray-500 text-[11px]">
+                Ningún miembro está disponible en este horario o la franja queda totalmente descalificada.
+              </p>
+            </div>
           </div>
         </div>
       </main>
@@ -318,24 +451,33 @@ export default function App() {
             <span className="w-2.5 h-2.5 rounded-full bg-[#acc917]" />
             <span className="font-semibold text-gray-700">TimeSync Workspace</span>
             <span className="text-gray-300">•</span>
-            <span>Estilo ClickUp (fondos blancos, grises suaves y paleta personalizada)</span>
+            <span>Diseño tipo calendario con formato 12 Horas AM/PM y avatares</span>
           </div>
 
           <div className="flex items-center gap-4 text-[11px] font-mono">
             <span className="text-gray-600">Zona Activa: <strong className="text-gray-900">{activeTimeZone}</strong></span>
             <span className="text-gray-300">•</span>
-            <span className="text-[#141f5b] font-bold">DevSec: 12/12 Tests Aprobados</span>
+            <span className="text-[#141f5b] font-bold">DevSec: Verificado</span>
           </div>
         </div>
       </footer>
 
       {/* Modals */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        members={members}
+        currentUser={currentUser}
+        onLogin={handleLogin}
+        onLogout={handleLogout}
+      />
+
       <MemberModal
         isOpen={isMemberModalOpen}
         onClose={() => setIsMemberModalOpen(false)}
         onSave={handleSaveMember}
         memberToEdit={memberToEdit}
-        currentUser={currentUser}
+        currentUser={currentUser || members[0]}
       />
 
       <QuickScheduleModal
@@ -349,7 +491,7 @@ export default function App() {
       <DevSecModal
         isOpen={isDevSecModalOpen}
         onClose={() => setIsDevSecModalOpen(false)}
-        currentUser={currentUser}
+        currentUser={currentUser || members[0]}
       />
 
       <CalendarBusyOverlay

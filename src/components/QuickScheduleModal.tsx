@@ -67,13 +67,13 @@ export const QuickScheduleModal: React.FC<QuickScheduleModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in">
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-xs overflow-y-auto animate-in fade-in">
       <div 
         id="schedule-modal-content"
-        className="bg-white border border-gray-200 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl animate-in zoom-in-95"
+        className="bg-white border border-gray-200 rounded-2xl max-w-lg w-full max-h-[92vh] flex flex-col shadow-2xl animate-in zoom-in-95 my-auto overflow-hidden"
       >
         {/* Header */}
-        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="p-4 border-b border-gray-100 flex items-center justify-between shrink-0 bg-white">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-[#acc917]/20 text-[#141f5b] border border-[#acc917]">
               <Calendar className="w-4 h-4" />
@@ -90,7 +90,7 @@ export const QuickScheduleModal: React.FC<QuickScheduleModalProps> = ({
           </button>
         </div>
 
-        <div className="p-4 space-y-4 text-xs">
+        <div className="p-4 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
           {/* Meeting Title Input */}
           <div>
             <label className="block text-gray-600 font-semibold mb-1">Título de la Sesión</label>

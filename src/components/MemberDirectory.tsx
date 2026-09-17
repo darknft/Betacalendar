@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { Member } from '../types';
 import { COUNTRY_FLAG_MAP } from '../data/mockMembers';
-import { formatInTimezone, localTimeToUtcIso } from '../utils/timeEngine';
+import { formatInTimezone, localTimeToUtcIso, getMemberMeetingSlots, formatTime24to12 } from '../utils/timeEngine';
 
 interface MemberDirectoryProps {
   members: Member[];
@@ -253,20 +253,47 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
                 </div>
 
                 {/* 3. Meeting Hours Destined */}
-                <div className="bg-[#acc917]/15 rounded-lg p-2.5 border border-[#acc917]/40 space-y-1">
+                <div className="bg-[#acc917]/15 rounded-lg p-2.5 border border-[#acc917]/40 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#141f5b] flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-[#acc917]" />
                       Horas Libres para Reunión
                     </span>
-                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-white text-[#141f5b] font-bold border border-[#acc917]">
-                      {member.meetingStart || '09:00'} - {member.meetingEnd || '12:00'}
+                    <span className="text-[9px] font-bold text-[#141f5b] bg-white px-1.5 py-0.5 rounded border border-[#acc917]/50">
+                      {getMemberMeetingSlots(member).length} {getMemberMeetingSlots(member).length === 1 ? 'franja' : 'franjas'}
                     </span>
                   </div>
+
+                  <div className="flex flex-wrap gap-1">
+                    {getMemberMeetingSlots(member).map((s, sIdx) => (
+                      <span
+                        key={sIdx}
+                        className="text-[10px] font-mono px-2 py-0.5 rounded bg-white text-[#141f5b] font-bold border border-[#acc917] shadow-2xs"
+                      >
+                        {formatTime24to12(s.start)} - {formatTime24to12(s.end)}
+                      </span>
+                    ))}
+                  </div>
+
                   <p className="text-[10px] text-gray-600">
                     Ventana preferida para coordinar llamadas y sesiones síncronas.
                   </p>
                 </div>
+
+                {/* Credentials display for Admin or Self */}
+                {(isAdmin || currentUser.id === member.id) && (
+                  <div className="bg-gray-100/80 rounded-lg p-2 border border-gray-200 flex items-center justify-between text-[11px]">
+                    <div className="flex items-center gap-1.5 text-gray-600">
+                      <span className="font-semibold text-gray-700">Clave de Acceso:</span>
+                      <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-gray-200 text-gray-900 font-bold">
+                        {member.password || 'password123'}
+                      </code>
+                    </div>
+                    <span className="text-[10px] text-gray-400 font-mono">
+                      {member.role === 'admin' ? 'Admin' : 'Miembro'}
+                    </span>
+                  </div>
+                )}
 
                 {/* Busy Slots Count */}
                 <div className="flex items-center justify-between pt-1 text-[11px] text-gray-500">
@@ -293,10 +320,10 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
                 {canEditThisMember ? (
                   <button
                     onClick={() => onEditMember(member)}
-                    className="flex items-center gap-1 text-xs text-gray-700 hover:text-gray-900 font-medium py-1 px-2.5 rounded-md hover:bg-gray-100 transition-colors cursor-pointer border border-gray-200 shadow-2xs"
+                    className="flex items-center gap-1.5 text-xs text-[#141f5b] hover:text-[#1a2875] font-bold py-1.5 px-3 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer border border-blue-200 bg-white shadow-2xs"
                   >
-                    <Edit3 className="w-3 h-3 text-gray-500" />
-                    <span>Editar Horario</span>
+                    <Edit3 className="w-3.5 h-3.5 text-[#141f5b]" />
+                    <span>Editar Perfil y Horario</span>
                   </button>
                 ) : (
                   <span className="text-[10px] text-gray-400 italic flex items-center gap-1">

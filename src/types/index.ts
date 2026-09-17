@@ -7,12 +7,19 @@ export interface TimeSlot {
   source?: 'manual' | 'google_calendar' | 'system';
 }
 
+export interface MeetingSlot {
+  id?: string;
+  start: string; // Formato 24h "HH:mm" (ej. "08:00" o "17:00")
+  end: string;   // Formato 24h "HH:mm" (ej. "09:00" o "22:00")
+}
+
 export interface Member {
   id: string;          // UUID v4
   auth_id: string;     // Supabase Auth User UID
   firstName: string;   // Requerido
   lastName: string;    // Requerido
   email: string;       // Requerido
+  password?: string;   // Clave de acceso para login
   teamSpaceId: string; // UUID v4
   type: MemberType;
   country: string;     // ISO 2 (ej. "SV", "ES", "US", "JP", "CO")
@@ -21,6 +28,7 @@ export interface Member {
   workEnd: string;     // Formato 24h "HH:mm" (ej. "17:00")
   meetingStart?: string; // Formato 24h "HH:mm" - Horas libres para reunirse (ej. "09:00")
   meetingEnd?: string;   // Formato 24h "HH:mm" - Horas libres para reunirse (ej. "12:00")
+  meetingSlots?: MeetingSlot[]; // Múltiples franjas/slots libres para reuniones
   busySlots: TimeSlot[];
   availableSlots: TimeSlot[];
   role?: 'admin' | 'member' | 'guest';
