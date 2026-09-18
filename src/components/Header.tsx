@@ -38,6 +38,7 @@ interface HeaderProps {
   onChangeGanttSubView: (subView: 'semanal' | 'diaria') => void;
   selectedCount: number;
   totalCount: number;
+  cloudSyncStatus?: 'synced' | 'syncing' | 'offline';
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -55,7 +56,8 @@ export const Header: React.FC<HeaderProps> = ({
   ganttSubView,
   onChangeGanttSubView,
   selectedCount,
-  totalCount
+  totalCount,
+  cloudSyncStatus = 'synced'
 }) => {
   const [showTzDropdown, setShowTzDropdown] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
@@ -90,6 +92,24 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-gray-100 text-gray-600 border border-gray-200">
               Workspace Multizona
             </span>
+            {cloudSyncStatus === 'synced' && (
+              <span className="hidden lg:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Firebase Cloud Sync
+              </span>
+            )}
+            {cloudSyncStatus === 'syncing' && (
+              <span className="hidden lg:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-spin" />
+                Sincronizando...
+              </span>
+            )}
+            {cloudSyncStatus === 'offline' && (
+              <span className="hidden lg:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                Modo Local
+              </span>
+            )}
           </div>
         </div>
 

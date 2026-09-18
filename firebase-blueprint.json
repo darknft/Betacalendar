@@ -1,0 +1,135 @@
+{
+  "entities": {
+    "Member": {
+      "title": "Member",
+      "description": "A team member with their timezone, availability, and meeting preferences",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the team member"
+        },
+        "auth_id": {
+          "type": "string",
+          "description": "Auth identifier or local profile ID"
+        },
+        "firstName": {
+          "type": "string",
+          "description": "First name of the member"
+        },
+        "lastName": {
+          "type": "string",
+          "description": "Last name of the member"
+        },
+        "email": {
+          "type": "string",
+          "description": "Work email address"
+        },
+        "country": {
+          "type": "string",
+          "description": "Two letter ISO country code"
+        },
+        "timeZone": {
+          "type": "string",
+          "description": "IANA Time Zone string"
+        },
+        "workStart": {
+          "type": "string",
+          "description": "Working hours start time (HH:MM)"
+        },
+        "workEnd": {
+          "type": "string",
+          "description": "Working hours end time (HH:MM)"
+        },
+        "meetingStart": {
+          "type": "string",
+          "description": "Meeting window start time (HH:MM)"
+        },
+        "meetingEnd": {
+          "type": "string",
+          "description": "Meeting window end time (HH:MM)"
+        },
+        "meetingSlots": {
+          "type": "array",
+          "description": "Configured meeting slots intervals"
+        },
+        "busySlots": {
+          "type": "array",
+          "description": "Busy calendar slots"
+        },
+        "availableSlots": {
+          "type": "array",
+          "description": "Explicit available calendar slots"
+        },
+        "role": {
+          "type": "string",
+          "description": "User role: admin or member",
+          "enum": ["admin", "member"]
+        },
+        "avatarUrl": {
+          "type": "string",
+          "description": "Profile picture URL"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last updated ISO timestamp"
+        }
+      },
+      "required": ["id", "firstName", "lastName", "email", "country", "timeZone", "role"]
+    },
+    "ScheduledMeeting": {
+      "title": "ScheduledMeeting",
+      "description": "A scheduled meeting slot agreed by the team",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique meeting identifier"
+        },
+        "title": {
+          "type": "string",
+          "description": "Meeting title or topic"
+        },
+        "date": {
+          "type": "string",
+          "description": "Date string YYYY-MM-DD"
+        },
+        "startTime": {
+          "type": "string",
+          "description": "Local start time string"
+        },
+        "endTime": {
+          "type": "string",
+          "description": "Local end time string"
+        },
+        "isoUTC": {
+          "type": "string",
+          "description": "UTC ISO timestamp of the meeting start"
+        },
+        "participantIds": {
+          "type": "array",
+          "description": "List of member IDs participating in the meeting"
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "Member ID or name who scheduled the meeting"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation ISO timestamp"
+        }
+      },
+      "required": ["id", "title", "date", "startTime", "endTime", "isoUTC", "participantIds"]
+    }
+  },
+  "firestore": {
+    "/members/{memberId}": {
+      "schema": "Member",
+      "description": "Collection of team members with their schedules"
+    },
+    "/scheduledMeetings/{meetingId}": {
+      "schema": "ScheduledMeeting",
+      "description": "Collection of meetings scheduled by team members"
+    }
+  }
+}

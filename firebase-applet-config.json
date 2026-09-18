@@ -1,0 +1,12 @@
+{
+  "projectId": "scheduleapi-healthcare",
+  "appId": "1:797263028401:web:869b40c5abc8bcb7790290",
+  "apiKey": "AIzaSyAUb_tzOV8U0ozgfQKiJ0lSG2m7OmLnhTg",
+  "authDomain": "scheduleapi-healthcare.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-timesynccoordina-857b7cd2-cafd-4724-932a-a2cf89ddb888",
+  "storageBucket": "scheduleapi-healthcare.firebasestorage.app",
+  "messagingSenderId": "797263028401",
+  "measurementId": "",
+  "oAuthClientId": "797263028401-1fd30ipkdsp161qi40hh3gd5vi5quppr.apps.googleusercontent.com",
+  "recaptchaSiteKey": ""
+}

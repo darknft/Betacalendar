@@ -49,6 +49,12 @@ import {
   KeyRound
 } from 'lucide-react';
 import { safeJsonParse } from './utils/security';
+import { 
+  testFirestoreConnection, 
+  subscribeToMembers, 
+  saveMemberToFirestore, 
+  updateMemberBusySlotsInFirestore 
+} from './lib/firebase';
 
 export default function App() {
   // Detect browser local timezone cleanly
@@ -107,6 +113,9 @@ export default function App() {
   const [isBusyOverlayOpen, setIsBusyOverlayOpen] = useState(false);
   const [memberForBusy, setMemberForBusy] = useState<Member | null>(null);
 
+  // Cloud Sync Status: 'synced' | 'syncing' | 'offline'
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<'synced' | 'syncing' | 'offline'>('syncing');
+
   // Toast notification for timezone or login feedback
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -115,12 +124,41 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Synchronize members to localStorage safely
+  // Synchronize members to localStorage as resilient offline cache
   useEffect(() => {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('timesync_team_members_v2', JSON.stringify(members));
     }
   }, [members]);
+
+  // Real-time Cloud Synchronization with Firebase Firestore
+  useEffect(() => {
+    let isMounted = true;
+
+    // Test connection on startup
+    testFirestoreConnection().catch(() => {});
+
+    // Listen to real-time changes from any teammate
+    const unsubscribe = subscribeToMembers(
+      (cloudMembers) => {
+        if (!isMounted) return;
+        if (cloudMembers && cloudMembers.length > 0) {
+          setMembers(cloudMembers);
+          setCloudSyncStatus('synced');
+        }
+      },
+      (err) => {
+        if (!isMounted) return;
+        console.warn('Firestore offline/fallback:', err);
+        setCloudSyncStatus('offline');
+      }
+    );
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, []);
 
   // Keep currentUser state in sync if member updated
   useEffect(() => {
@@ -147,8 +185,9 @@ export default function App() {
     setSelectedMemberIds([]);
   };
 
-  // Member CRUD handlers
-  const handleSaveMember = (member: Member) => {
+  // Member CRUD handlers (with Cloud Firestore Persistence)
+  const handleSaveMember = async (member: Member) => {
+    // Optimistic local state update
     setMembers((prev) => {
       const exists = prev.some((m) => m.id === member.id);
       if (exists) {
@@ -157,18 +196,29 @@ export default function App() {
       return [...prev, member];
     });
 
-    // If the saved member is the current user, update their active timezone
+    // If the saved member is the current user, update active timezone
     if (currentUser?.id === member.id) {
       setCurrentUser(member);
       setActiveTimeZone(member.timeZone);
-      showToast(`Perfil actualizado. Horarios proyectados en tu zona local: ${member.timeZone}`);
+      showToast(`Perfil sincronizado en la nube. Proyectando en tu zona: ${member.timeZone}`);
     } else {
-      showToast(`Datos del colaborador ${member.firstName} guardados exitosamente.`);
+      showToast(`Datos del colaborador ${member.firstName} guardados y sincronizados.`);
     }
 
     // Auto-select newly created member
     if (!selectedMemberIds.includes(member.id)) {
       setSelectedMemberIds((prev) => [...prev, member.id]);
+    }
+
+    // Write to Firebase Firestore in background
+    try {
+      setCloudSyncStatus('syncing');
+      await saveMemberToFirestore(member);
+      setCloudSyncStatus('synced');
+    } catch (err) {
+      console.error('Error saving to cloud Firestore:', err);
+      showToast('Guardado localmente. Se sincronizará cuando se restablezca la conexión.');
+      setCloudSyncStatus('offline');
     }
   };
 
@@ -209,14 +259,23 @@ export default function App() {
     setIsBusyOverlayOpen(true);
   };
 
-  const handleUpdateBusySlots = (memberId: string, updatedSlots: TimeSlot[]) => {
+  const handleUpdateBusySlots = async (memberId: string, updatedSlots: TimeSlot[]) => {
     setMembers((prev) =>
       prev.map((m) => (m.id === memberId ? { ...m, busySlots: updatedSlots } : m))
     );
     if (memberForBusy && memberForBusy.id === memberId) {
       setMemberForBusy((prev) => (prev ? { ...prev, busySlots: updatedSlots } : null));
     }
-    showToast('Bloqueos de agenda actualizados.');
+    showToast('Bloqueos de agenda sincronizados.');
+
+    try {
+      setCloudSyncStatus('syncing');
+      await updateMemberBusySlotsInFirestore(memberId, updatedSlots);
+      setCloudSyncStatus('synced');
+    } catch (err) {
+      console.error('Error updating busy slots in Firestore:', err);
+      setCloudSyncStatus('offline');
+    }
   };
 
   // Scheduling handler (opens Google Calendar / Quick schedule modal)
@@ -254,6 +313,7 @@ export default function App() {
         onChangeGanttSubView={setGanttSubView}
         selectedCount={selectedMemberIds.length}
         totalCount={members.length}
+        cloudSyncStatus={cloudSyncStatus}
       />
 
       {/* Main Workspace Container */}
