@@ -120,20 +120,20 @@ export const GanttWeeklyView: React.FC<GanttWeeklyViewProps> = ({
         {/* Legend & Config controls */}
         <div className="flex flex-wrap items-center gap-3 text-xs">
           
-          {/* Status color badges matching user instructions */}
+          {/* Status color badges */}
           <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-300 px-2.5 py-1 rounded-lg">
             <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block shadow-2xs" />
             <span className="text-emerald-950 font-bold">Verde: Todos Coinciden</span>
           </div>
 
-          <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-300 px-2.5 py-1 rounded-lg">
-            <span className="w-3 h-3 rounded-full bg-amber-500 inline-block shadow-2xs" />
-            <span className="text-amber-950 font-semibold">Amarillo: 1 No Coincide (Borde Rojo)</span>
+          <div className="flex items-center gap-1.5 bg-yellow-50 border border-yellow-300 px-2.5 py-1 rounded-lg">
+            <span className="w-3 h-3 rounded-full bg-yellow-400 inline-block shadow-2xs" />
+            <span className="text-amber-950 font-semibold">Amarillo: Coincidencia Parcial</span>
           </div>
 
-          <div className="flex items-center gap-1.5 bg-red-50 border border-red-300 px-2.5 py-1 rounded-lg">
-            <span className="w-3 h-3 rounded-full bg-red-500 inline-block shadow-2xs" />
-            <span className="text-red-950 font-semibold">Borde Rojo: Nadie Coincide</span>
+          <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-lg">
+            <span className="w-3 h-3 rounded-full bg-gray-400 inline-block shadow-2xs" />
+            <span className="text-gray-700 font-medium">Gris: Nadie Coincide</span>
           </div>
 
           {/* Range Mode Switcher */}
@@ -281,16 +281,15 @@ export const GanttWeeklyView: React.FC<GanttWeeklyViewProps> = ({
                         dateKey: day.dateStr
                       };
 
-                      // Slot background styling
+                      // Slot background styling matching user screenshot
                       let slotContainerStyle = 'bg-white border-gray-200';
                       if (isAllCoincide) {
-                        slotContainerStyle = 'bg-emerald-100/90 border-2 border-emerald-500 shadow-xs';
-                      } else if (isOnlyOneMissing) {
-                        slotContainerStyle = 'bg-amber-100/90 border-2 border-amber-400 shadow-xs';
-                      } else if (isNobodyCoincides) {
-                        slotContainerStyle = 'bg-red-50/60 border-2 border-red-400 shadow-xs';
-                      } else if (isPartial) {
-                        slotContainerStyle = 'bg-amber-50/70 border border-amber-300';
+                        slotContainerStyle = 'bg-emerald-50/80 border-2 border-emerald-400 shadow-2xs';
+                      } else if (!isNobodyCoincides) {
+                        // Partial overlap (e.g. 1 or 2 do not coincide) -> Soft yellow with gold border
+                        slotContainerStyle = 'bg-[#FFFDF4] border-2 border-[#F4DF77] shadow-2xs';
+                      } else {
+                        slotContainerStyle = 'bg-gray-50/60 border border-gray-200/90';
                       }
 
                       return (
@@ -299,78 +298,70 @@ export const GanttWeeklyView: React.FC<GanttWeeklyViewProps> = ({
                           className="p-1.5 border-r border-gray-200 last:border-r-0 align-top"
                         >
                           <div
-                            className={`rounded-2xl p-2 sm:p-2.5 transition-all flex flex-col justify-between gap-2 min-h-[140px] ${slotContainerStyle}`}
+                            className={`rounded-2xl p-2.5 transition-all flex flex-col justify-between gap-2.5 min-h-[140px] ${slotContainerStyle}`}
                           >
-                            {/* Slot Top Header: Status label & Agendar button when all coincide */}
-                            <div className="flex items-center justify-between gap-1 pb-1 border-b border-black/5">
+                            {/* Slot Top Header: Status label & counter badge */}
+                            <div className="flex items-center justify-between gap-1 pb-1">
                               {isAllCoincide ? (
                                 <>
-                                  <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-emerald-900">
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-900">
                                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                    <span>Coinciden Todos</span>
+                                    <span>Coinciden todos</span>
                                   </span>
 
-                                  {/* User instruction: "Si todos estan disponibles debe permitir agendar tanto en semana como en día." */}
-                                  <button
-                                    onClick={() => onSelectSlotToSchedule(overlapSlot)}
-                                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#141f5b] hover:bg-[#1a2875] text-white text-[11px] font-bold transition-all shadow-xs cursor-pointer"
-                                    title="Agendar reunión con todos los participantes en este horario"
-                                  >
-                                    <CalendarPlus className="w-3.5 h-3.5 text-[#acc917]" />
-                                    <span>Agendar</span>
-                                  </button>
-                                </>
-                              ) : isOnlyOneMissing ? (
-                                <>
-                                  <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-amber-950">
-                                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                                    <span>1 No Coincide</span>
-                                  </span>
-                                  <span className="text-[10px] font-mono font-bold bg-white/90 text-amber-900 px-1.5 py-0.2 rounded border border-amber-300">
-                                    {availableCount}/{total}
-                                  </span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[10px] font-mono font-semibold bg-white text-emerald-900 px-1.5 py-0.5 rounded-md border border-emerald-300 shadow-2xs">
+                                      {availableCount}/{total}
+                                    </span>
+                                    <button
+                                      onClick={() => onSelectSlotToSchedule(overlapSlot)}
+                                      className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#141f5b] hover:bg-[#1a2875] text-white text-[10px] font-bold transition-all shadow-xs cursor-pointer"
+                                      title="Agendar reunión con todos los participantes en este horario"
+                                    >
+                                      <CalendarPlus className="w-3 h-3 text-[#acc917]" />
+                                      <span>Agendar</span>
+                                    </button>
+                                  </div>
                                 </>
                               ) : isNobodyCoincides ? (
                                 <>
-                                  <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-red-900">
-                                    <XCircle className="w-3.5 h-3.5 text-red-600" />
-                                    <span>Nadie Coincide</span>
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-500">
+                                    <span>{total} no coinciden</span>
                                   </span>
-                                  <span className="text-[10px] font-mono font-bold bg-red-100 text-red-800 px-1.5 py-0.2 rounded border border-red-300">
+                                  <span className="text-[10px] font-mono font-medium bg-white text-gray-500 px-1.5 py-0.5 rounded-md border border-gray-200 shadow-2xs">
                                     0/{total}
                                   </span>
                                 </>
                               ) : (
                                 <>
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-gray-700">
-                                    <span>{unavailableCount} no coinciden</span>
+                                  <span className="text-[11px] font-medium text-gray-800 truncate">
+                                    {unavailableCount === 1 ? '1 no coincide' : `${unavailableCount} no coinciden`}
                                   </span>
-                                  <span className="text-[10px] font-mono font-bold bg-white/80 text-gray-700 px-1 py-0.2 rounded border border-gray-200">
+                                  <span className="text-[10px] font-mono font-medium bg-white text-gray-700 px-1.5 py-0.5 rounded-md border border-gray-200/90 shadow-2xs">
                                     {availableCount}/{total}
                                   </span>
                                 </>
                               )}
                             </div>
 
-                            {/* Slot Members List:
-                                Matching image.png exactly:
-                                Each member displayed in an individual capsule with:
-                                - Circular photo avatar
-                                - Full name (first + last name)
-                                - Country flag
-                                - If member DOES NOT coincide: RED BORDER (borde rojo)!
-                            */}
-                            <div className="space-y-1.5">
-                              {activeMembers.map((member) => {
-                                const isAvail = availableMemberIds.includes(member.id);
-                                return (
-                                  <SlotMemberItem
-                                    key={member.id}
-                                    member={member}
-                                    isAvailable={isAvail}
-                                  />
-                                );
-                              })}
+                            {/* Slot Members List: ONLY showing the members who ARE available! */}
+                            <div className="space-y-1.5 flex-1 pt-0.5">
+                              {availableCount > 0 ? (
+                                activeMembers
+                                  .filter((member) => availableMemberIds.includes(member.id))
+                                  .map((member) => (
+                                    <SlotMemberItem
+                                      key={member.id}
+                                      member={member}
+                                    />
+                                  ))
+                              ) : (
+                                <div className="h-full flex items-center justify-center p-2 text-center">
+                                  <span className="text-[10px] text-gray-400 italic">
+                                    Nadie disponible
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>

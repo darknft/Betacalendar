@@ -5,40 +5,32 @@ import { formatMeetingSlotsSummary } from '../utils/timeEngine';
 
 interface SlotMemberItemProps {
   member: Member;
-  isAvailable: boolean;
+  isAvailable?: boolean;
 }
 
-export const SlotMemberItem: React.FC<SlotMemberItemProps> = ({ member, isAvailable }) => {
+export const SlotMemberItem: React.FC<SlotMemberItemProps> = ({ member }) => {
   const flag = COUNTRY_FLAG_MAP[member.country]?.flag || '🌐';
 
   return (
     <div
-      className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl transition-all shadow-2xs ${
-        !isAvailable
-          ? 'border-2 border-red-500 bg-red-50/90 text-gray-900 shadow-xs'
-          : 'border border-gray-200/90 bg-white text-gray-800 hover:border-gray-300'
-      }`}
-      title={
-        isAvailable
-          ? `${member.firstName} ${member.lastName}: Disponible para reunión (${formatMeetingSlotsSummary(member)} en su zona)`
-          : `${member.firstName} ${member.lastName}: No coincide / Fuera de horario o en reunión`
-      }
+      className="flex items-center justify-between px-3 py-2 rounded-xl bg-white border border-gray-150 shadow-2xs hover:shadow-xs transition-all"
+      title={`${member.firstName} ${member.lastName}: Disponible para reunión (${formatMeetingSlotsSummary(member)} en su zona)`}
     >
       {/* Left: Avatar image and First + Last name */}
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center gap-2.5 min-w-0">
         {member.avatarUrl ? (
           <img
             src={member.avatarUrl}
             alt={`${member.firstName} ${member.lastName}`}
             referrerPolicy="no-referrer"
-            className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-cover shrink-0 border border-gray-200 shadow-2xs"
+            className="w-6 h-6 rounded-full object-cover shrink-0 border border-gray-200 shadow-2xs"
           />
         ) : (
-          <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-[#141f5b] text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+          <div className="w-6 h-6 rounded-full bg-[#141f5b] text-white flex items-center justify-center text-[10px] font-bold shrink-0">
             {member.firstName[0]}
           </div>
         )}
-        <span className="text-[11px] font-semibold text-gray-900 truncate leading-tight">
+        <span className="text-xs font-semibold text-gray-800 truncate leading-tight">
           {member.firstName} {member.lastName}
         </span>
       </div>
@@ -50,3 +42,4 @@ export const SlotMemberItem: React.FC<SlotMemberItemProps> = ({ member, isAvaila
     </div>
   );
 };
+
