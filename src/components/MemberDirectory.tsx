@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   User, 
   Clock, 
@@ -9,11 +9,14 @@ import {
   Square, 
   Briefcase, 
   Calendar,
-  AlertCircle
+  AlertCircle,
+  Trash2,
+  Shield
 } from 'lucide-react';
 import { Member } from '../types';
 import { COUNTRY_FLAG_MAP } from '../data/mockMembers';
 import { formatInTimezone, localTimeToUtcIso, getMemberMeetingSlots, formatTime24to12 } from '../utils/timeEngine';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 interface MemberDirectoryProps {
   members: Member[];
@@ -26,6 +29,7 @@ interface MemberDirectoryProps {
   onEditMember: (member: Member) => void;
   onAddNewMember: () => void;
   onOpenManageBusy: (member: Member) => void;
+  onDeleteMembers: (memberIds: string[]) => void;
 }
 
 export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
@@ -38,10 +42,17 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
   activeTimeZone,
   onEditMember,
   onAddNewMember,
-  onOpenManageBusy
+  onOpenManageBusy,
+  onDeleteMembers
 }) => {
   const isAdmin = currentUser.role === 'admin';
   const todayStr = new Date().toISOString().substring(0, 10);
+  const [membersPendingDelete, setMembersPendingDelete] = useState<Member[]>([]);
+
+  // Calculate selected non-admin members (Admin can NEVER be deleted)
+  const selectedNonAdmins = members.filter(
+    (m) => selectedMemberIds.includes(m.id) && m.role !== 'admin'
+  );
 
   // Determine current active status for each member
   const getMemberStatus = (member: Member) => {
@@ -131,6 +142,35 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Action button named strictly "Borrar" allowing selection of chosen members */}
+          <button
+            id="delete-selected-members-btn"
+            onClick={() => {
+              if (selectedNonAdmins.length > 0) {
+                setMembersPendingDelete(selectedNonAdmins);
+              }
+            }}
+            disabled={selectedNonAdmins.length === 0}
+            className={`flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-lg font-bold transition-all shadow-2xs ${
+              selectedNonAdmins.length > 0
+                ? 'bg-red-600 hover:bg-red-700 text-white cursor-pointer'
+                : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed opacity-60'
+            }`}
+            title={
+              selectedNonAdmins.length > 0
+                ? `Borrar ${selectedNonAdmins.length} colaborador(es) seleccionado(s)`
+                : 'Selecciona los colaboradores que desees borrar (el Admin está protegido)'
+            }
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Borrar</span>
+            {selectedNonAdmins.length > 0 && (
+              <span className="bg-white/25 text-white text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold">
+                {selectedNonAdmins.length}
+              </span>
+            )}
+          </button>
+
           {isAdmin && (
             <button
               id="add-member-btn"
@@ -210,13 +250,20 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
                     {status.label}
                   </span>
 
-                  <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded border ${
-                    member.type === 'INTERNAL'
-                      ? 'bg-blue-50 text-[#141f5b] border-blue-200'
-                      : 'bg-amber-50 text-amber-700 border-amber-200'
-                  }`}>
-                    {member.type}
-                  </span>
+                  {member.role === 'admin' ? (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border bg-purple-50 text-purple-700 border-purple-200 flex items-center gap-1 shadow-2xs">
+                      <Shield className="w-3 h-3 text-purple-600" />
+                      Admin (Protegido)
+                    </span>
+                  ) : (
+                    <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded border ${
+                      member.type === 'INTERNAL'
+                        ? 'bg-blue-50 text-[#141f5b] border-blue-200'
+                        : 'bg-amber-50 text-amber-700 border-amber-200'
+                    }`}>
+                      {member.type}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -318,13 +365,31 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
                 </span>
 
                 {canEditThisMember ? (
-                  <button
-                    onClick={() => onEditMember(member)}
-                    className="flex items-center gap-1.5 text-xs text-[#141f5b] hover:text-[#1a2875] font-bold py-1.5 px-3 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer border border-blue-200 bg-white shadow-2xs"
-                  >
-                    <Edit3 className="w-3.5 h-3.5 text-[#141f5b]" />
-                    <span>Editar Perfil y Horario</span>
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    {member.role !== 'admin' ? (
+                      <button
+                        onClick={() => setMembersPendingDelete([member])}
+                        className="p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors cursor-pointer shadow-2xs"
+                        title={`Eliminar a ${member.firstName} ${member.lastName}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <span 
+                        className="text-[10px] text-purple-700 bg-purple-50 px-2 py-1 rounded font-bold border border-purple-200 cursor-default"
+                        title="El administrador no puede ser eliminado"
+                      >
+                        Admin protegido
+                      </span>
+                    )}
+                    <button
+                      onClick={() => onEditMember(member)}
+                      className="flex items-center gap-1.5 text-xs text-[#141f5b] hover:text-[#1a2875] font-bold py-1.5 px-3 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer border border-blue-200 bg-white shadow-2xs"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-[#141f5b]" />
+                      <span>Editar Perfil</span>
+                    </button>
+                  </div>
                 ) : (
                   <span className="text-[10px] text-gray-400 italic flex items-center gap-1">
                     Solo lectura (RLS)
@@ -335,6 +400,18 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
           );
         })}
       </div>
+
+      {/* In-app Confirmation Modal for safe deletion in iframe / browser */}
+      <ConfirmDeleteModal
+        isOpen={membersPendingDelete.length > 0}
+        onClose={() => setMembersPendingDelete([])}
+        onConfirm={() => {
+          const ids = membersPendingDelete.map((m) => m.id);
+          setMembersPendingDelete([]);
+          onDeleteMembers(ids);
+        }}
+        membersToDelete={membersPendingDelete}
+      />
     </div>
   );
 };

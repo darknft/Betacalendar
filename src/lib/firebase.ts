@@ -3,9 +3,11 @@ import {
   getFirestore,
   collection,
   doc,
+  getDoc,
   getDocs,
   setDoc,
   deleteDoc,
+  writeBatch,
   onSnapshot,
   getDocFromServer,
   Firestore
@@ -46,10 +48,17 @@ export async function testFirestoreConnection(): Promise<boolean> {
 }
 
 /**
- * Seed initial members into Firestore if the collection is empty
+ * Seed initial members into Firestore if the collection is empty AND never seeded before
  */
 export async function seedMembersIfEmpty(): Promise<void> {
   try {
+    const metaRef = doc(db, 'system', 'meta');
+    const metaSnap = await getDoc(metaRef);
+    if (metaSnap.exists() && metaSnap.data()?.hasSeeded) {
+      // User or system has already processed the initial seed. If empty, it means all members were deliberately deleted.
+      return;
+    }
+
     const colRef = collection(db, 'members');
     const snapshot = await getDocs(colRef);
     if (snapshot.empty) {
@@ -57,6 +66,9 @@ export async function seedMembersIfEmpty(): Promise<void> {
       for (const member of INITIAL_MEMBERS) {
         await setDoc(doc(db, 'members', member.id), member);
       }
+      await setDoc(metaRef, { hasSeeded: true, seededAt: new Date().toISOString() });
+    } else {
+      await setDoc(metaRef, { hasSeeded: true });
     }
   } catch (error) {
     console.error('Error seeding members to Firestore:', error);
@@ -76,7 +88,19 @@ export function subscribeToMembers(
     colRef,
     async (snapshot) => {
       if (snapshot.empty) {
-        // If empty on first read, seed and return initial
+        // Check if database has already been seeded before
+        const metaRef = doc(db, 'system', 'meta');
+        try {
+          const metaSnap = await getDoc(metaRef);
+          if (metaSnap.exists() && metaSnap.data()?.hasSeeded) {
+            // Deliberately empty, do not re-seed!
+            onUpdate([]);
+            return;
+          }
+        } catch {
+          // If offline or permission check
+        }
+
         await seedMembersIfEmpty();
         onUpdate(INITIAL_MEMBERS);
         return;
@@ -107,6 +131,9 @@ export async function saveMemberToFirestore(member: Member): Promise<void> {
   try {
     const memberDocRef = doc(db, 'members', member.id);
     await setDoc(memberDocRef, member, { merge: true });
+    // Mark system as seeded so empty state is never forced
+    const metaRef = doc(db, 'system', 'meta');
+    await setDoc(metaRef, { hasSeeded: true }, { merge: true });
   } catch (error) {
     console.error('Error saving member to Firestore:', error);
     throw error;
@@ -136,8 +163,29 @@ export async function deleteMemberFromFirestore(memberId: string): Promise<void>
   try {
     const memberDocRef = doc(db, 'members', memberId);
     await deleteDoc(memberDocRef);
+    // Ensure system is marked as seeded so deleting this member doesn't cause a reseed
+    const metaRef = doc(db, 'system', 'meta');
+    await setDoc(metaRef, { hasSeeded: true }, { merge: true });
   } catch (error) {
     console.error('Error deleting member from Firestore:', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete multiple/sample members in batch
+ */
+export async function deleteMultipleMembersFromFirestore(memberIds: string[]): Promise<void> {
+  try {
+    const batch = writeBatch(db);
+    for (const id of memberIds) {
+      batch.delete(doc(db, 'members', id));
+    }
+    const metaRef = doc(db, 'system', 'meta');
+    batch.set(metaRef, { hasSeeded: true }, { merge: true });
+    await batch.commit();
+  } catch (error) {
+    console.error('Error deleting multiple members from Firestore:', error);
     throw error;
   }
 }

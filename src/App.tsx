@@ -53,7 +53,9 @@ import {
   testFirestoreConnection, 
   subscribeToMembers, 
   saveMemberToFirestore, 
-  updateMemberBusySlotsInFirestore 
+  updateMemberBusySlotsInFirestore,
+  deleteMemberFromFirestore,
+  deleteMultipleMembersFromFirestore
 } from './lib/firebase';
 
 export default function App() {
@@ -239,6 +241,75 @@ export default function App() {
   const handleAddNewMember = () => {
     setMemberToEdit(null);
     setIsMemberModalOpen(true);
+  };
+
+  const handleDeleteMember = async (memberId: string) => {
+    const member = members.find((m) => m.id === memberId);
+    if (member?.role === 'admin') {
+      showToast('El usuario Administrador está protegido y no puede ser eliminado.');
+      return;
+    }
+
+    const memberName = member ? `${member.firstName} ${member.lastName}` : 'Colaborador';
+
+    // Optimistically remove from state
+    setMembers((prev) => prev.filter((m) => m.id !== memberId));
+    setSelectedMemberIds((prev) => prev.filter((id) => id !== memberId));
+
+    if (currentUser?.id === memberId) {
+      const remaining = members.filter((m) => m.id !== memberId);
+      setCurrentUser(remaining.length > 0 ? remaining[0] : null);
+    }
+
+    showToast(`${memberName} ha sido eliminado.`);
+
+    try {
+      setCloudSyncStatus('syncing');
+      await deleteMemberFromFirestore(memberId);
+      setCloudSyncStatus('synced');
+    } catch (err) {
+      console.error('Error deleting member from Firestore:', err);
+      showToast('Error al sincronizar eliminación en la nube.');
+      setCloudSyncStatus('offline');
+    }
+  };
+
+  const handleDeleteMultipleMembers = async (memberIds: string[]) => {
+    // Filter out any admin members to guarantee admin protection
+    const safeIdsToDelete = memberIds.filter((id) => {
+      const m = members.find((mem) => mem.id === id);
+      return m && m.role !== 'admin';
+    });
+
+    if (safeIdsToDelete.length === 0) {
+      showToast('Los usuarios con rol Administrador están protegidos y no pueden ser eliminados.');
+      return;
+    }
+
+    // Optimistically update state
+    setMembers((prev) => prev.filter((m) => !safeIdsToDelete.includes(m.id)));
+    setSelectedMemberIds((prev) => prev.filter((id) => !safeIdsToDelete.includes(id)));
+
+    if (currentUser && safeIdsToDelete.includes(currentUser.id)) {
+      const remaining = members.filter((m) => !safeIdsToDelete.includes(m.id));
+      setCurrentUser(remaining.length > 0 ? remaining[0] : null);
+    }
+
+    showToast(
+      safeIdsToDelete.length === 1
+        ? 'Colaborador eliminado correctamente.'
+        : `${safeIdsToDelete.length} colaboradores eliminados correctamente.`
+    );
+
+    try {
+      setCloudSyncStatus('syncing');
+      await deleteMultipleMembersFromFirestore(safeIdsToDelete);
+      setCloudSyncStatus('synced');
+    } catch (err) {
+      console.error('Error deleting members from Firestore:', err);
+      showToast('Error al sincronizar eliminación en la nube.');
+      setCloudSyncStatus('offline');
+    }
   };
 
   // Auth handlers
@@ -465,6 +536,7 @@ export default function App() {
                 onEditMember={handleOpenEditMember}
                 onAddNewMember={handleAddNewMember}
                 onOpenManageBusy={handleOpenManageBusy}
+                onDeleteMembers={handleDeleteMultipleMembers}
               />
             </div>
           </div>
@@ -536,6 +608,7 @@ export default function App() {
         isOpen={isMemberModalOpen}
         onClose={() => setIsMemberModalOpen(false)}
         onSave={handleSaveMember}
+        onDelete={handleDeleteMember}
         memberToEdit={memberToEdit}
         currentUser={currentUser || members[0]}
       />

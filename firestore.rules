@@ -12,5 +12,11 @@ service cloud.firestore {
       allow read: if true;
       allow write: if true;
     }
+
+    // System metadata and settings rules
+    match /system/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
   }
 }

@@ -1,14 +1,41 @@
-import React, { useState, useEffect } from 'react';
-import { X, Save, Shield, AlertCircle, Clock, MapPin, Mail, User, Plus, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  X, 
+  Save, 
+  Shield, 
+  AlertCircle, 
+  Clock, 
+  MapPin, 
+  Mail, 
+  User, 
+  Plus, 
+  Trash2, 
+  Camera, 
+  Upload, 
+  Image as ImageIcon,
+  Copy,
+  Check
+} from 'lucide-react';
 import { Member, MemberType, MeetingSlot } from '../types';
 import { COMMON_TIMEZONES, COUNTRY_FLAG_MAP } from '../data/mockMembers';
 import { isValid24HourTime, isValidIanaTimeZone, sanitizeString, verifyRLSPermission } from '../utils/security';
 import { formatTime24to12 } from '../utils/timeEngine';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+
+const AVATAR_PRESETS = [
+  { label: 'Perfil 1', url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80' },
+  { label: 'Perfil 2', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80' },
+  { label: 'Perfil 3', url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80' },
+  { label: 'Perfil 4', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80' },
+  { label: 'Perfil 5', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80' },
+  { label: 'Perfil 6', url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=80' },
+];
 
 interface MemberModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (member: Member) => void;
+  onDelete?: (memberId: string) => void;
   memberToEdit?: Member | null;
   currentUser: Member;
 }
@@ -17,9 +44,11 @@ export const MemberModal: React.FC<MemberModalProps> = ({
   isOpen,
   onClose,
   onSave,
+  onDelete,
   memberToEdit,
   currentUser
 }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -30,10 +59,28 @@ export const MemberModal: React.FC<MemberModalProps> = ({
   const [timeZone, setTimeZone] = useState('America/El_Salvador');
   const [workStart, setWorkStart] = useState('08:00');
   const [workEnd, setWorkEnd] = useState('17:00');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [meetingSlots, setMeetingSlots] = useState<MeetingSlot[]>([
     { start: '09:00', end: '12:00' }
   ]);
   const [error, setError] = useState<string | null>(null);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [copiedInvite, setCopiedInvite] = useState(false);
+
+  const handleCopyInvitation = () => {
+    const inviteText = `¡Hola ${firstName || 'compañero'}!\nHas sido agregado a TimeSync.\n\nAcceso a la plataforma:\n🔗 Enlace: ${window.location.origin}${window.location.pathname}\n📧 Correo: ${email}\n🔑 Contraseña: ${password || 'password123'}\n\n¡Bienvenido!`;
+    navigator.clipboard.writeText(inviteText);
+    setCopiedInvite(true);
+    setTimeout(() => setCopiedInvite(false), 2500);
+  };
+
+  const getMailtoUrl = () => {
+    const subject = encodeURIComponent("Tus credenciales de acceso a TimeSync");
+    const body = encodeURIComponent(
+      `¡Hola ${firstName || ''}!\n\nHas sido agregado a TimeSync.\n\nPuedes acceder con los siguientes datos:\n• Enlace de la app: ${window.location.origin}${window.location.pathname}\n• Usuario / Correo: ${email}\n• Contraseña temporal: ${password || 'password123'}\n\n¡Saludos!`
+    );
+    return `mailto:${email}?subject=${subject}&body=${body}`;
+  };
 
   useEffect(() => {
     if (memberToEdit) {
@@ -47,6 +94,7 @@ export const MemberModal: React.FC<MemberModalProps> = ({
       setTimeZone(memberToEdit.timeZone);
       setWorkStart(memberToEdit.workStart);
       setWorkEnd(memberToEdit.workEnd);
+      setAvatarUrl(memberToEdit.avatarUrl || '');
       
       if (memberToEdit.meetingSlots && memberToEdit.meetingSlots.length > 0) {
         setMeetingSlots(memberToEdit.meetingSlots);
@@ -66,6 +114,7 @@ export const MemberModal: React.FC<MemberModalProps> = ({
       setTimeZone('America/El_Salvador');
       setWorkStart('08:00');
       setWorkEnd('17:00');
+      setAvatarUrl('');
       setMeetingSlots([{ start: '09:00', end: '12:00' }]);
     }
     setError(null);
@@ -78,6 +127,40 @@ export const MemberModal: React.FC<MemberModalProps> = ({
   const isAdmin = currentUser?.role === 'admin';
   const targetId = memberToEdit?.id || 'new-user';
   const rlsCheck = verifyRLSPermission(currentUser, targetId, isEditing ? 'UPDATE_PROFILE' : 'ADMIN_TOOLING');
+
+  // Handle local image file upload with lightweight compression for instant cloud storage
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Por favor selecciona un archivo de imagen válido (JPG, PNG, WebP).');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const size = 160;
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          const minSide = Math.min(img.width, img.height);
+          const sx = (img.width - minSide) / 2;
+          const sy = (img.height - minSide) / 2;
+          ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
+          const compressed = canvas.toDataURL('image/jpeg', 0.85);
+          setAvatarUrl(compressed);
+          setError(null);
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleUpdateSlot = (index: number, field: 'start' | 'end', val: string) => {
     setMeetingSlots((prev) =>
@@ -171,13 +254,18 @@ export const MemberModal: React.FC<MemberModalProps> = ({
       meetingEnd: meetingSlots[0]?.end || '12:00',
       meetingSlots,
       role: isAdmin ? role : (memberToEdit?.role || 'member'),
-      avatarUrl: memberToEdit?.avatarUrl || `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80`,
+      avatarUrl: avatarUrl.trim() || undefined,
       busySlots: memberToEdit?.busySlots || [],
       availableSlots: memberToEdit?.availableSlots || []
     };
 
     onSave(updatedMember);
     onClose();
+  };
+
+  const handleDeleteThisMember = () => {
+    if (!memberToEdit || !onDelete || memberToEdit.role === 'admin') return;
+    setIsConfirmingDelete(true);
   };
 
   return (
@@ -196,7 +284,7 @@ export const MemberModal: React.FC<MemberModalProps> = ({
               <h3 className="font-bold text-sm text-gray-900">
                 {isEditing ? 'Editar Perfil y Horario' : 'Registrar Nuevo Colaborador'}
               </h3>
-              <p className="text-[11px] text-gray-500">Configura jornada nativa y huso horario</p>
+              <p className="text-[11px] text-gray-500">Configura foto de perfil, jornada nativa y huso horario</p>
             </div>
           </div>
           <button
@@ -229,6 +317,104 @@ export const MemberModal: React.FC<MemberModalProps> = ({
                 <span>{error}</span>
               </div>
             )}
+
+            {/* Photo / Avatar Section */}
+            <div className="bg-gray-50/80 rounded-xl p-3.5 border border-gray-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-gray-800 font-bold text-xs flex items-center gap-1.5">
+                  <Camera className="w-3.5 h-3.5 text-[#141f5b]" />
+                  <span>Foto de Perfil del Colaborador</span>
+                </label>
+                {avatarUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setAvatarUrl('')}
+                    className="text-[11px] text-red-500 hover:underline font-semibold cursor-pointer"
+                  >
+                    Quitar foto
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3.5">
+                {/* Avatar Preview */}
+                <div className="relative shrink-0">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt="Avatar preview"
+                      referrerPolicy="no-referrer"
+                      className="w-14 h-14 rounded-full object-cover border-2 border-[#141f5b] shadow-xs"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-full bg-[#141f5b] text-white flex items-center justify-center font-bold text-base border-2 border-gray-200 shadow-xs">
+                      {firstName ? firstName[0].toUpperCase() : ''}{lastName ? lastName[0].toUpperCase() : ''}
+                      {!firstName && !lastName && <User className="w-6 h-6 text-gray-300" />}
+                    </div>
+                  )}
+                </div>
+
+                {/* Upload & Preset Options */}
+                <div className="flex-1 space-y-2 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/png, image/jpeg, image/webp"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                      id="member-photo-file-input"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-gray-300 hover:border-[#141f5b] text-gray-700 hover:text-[#141f5b] font-semibold text-xs transition-colors cursor-pointer shadow-2xs"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-[#141f5b]" />
+                      <span>Subir foto desde tu dispositivo</span>
+                    </button>
+                  </div>
+
+                  {/* URL Input */}
+                  <div className="space-y-1">
+                    <input
+                      type="url"
+                      value={avatarUrl}
+                      onChange={(e) => setAvatarUrl(e.target.value)}
+                      placeholder="O pega el enlace de una foto (https://...)"
+                      className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#141f5b]/20"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Preset Avatars */}
+              <div className="space-y-1 pt-2 border-t border-gray-200/60">
+                <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider block">
+                  O elige una foto sugerida:
+                </span>
+                <div className="flex items-center gap-2 overflow-x-auto py-1">
+                  {AVATAR_PRESETS.map((p, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setAvatarUrl(p.url)}
+                      className={`relative shrink-0 rounded-full p-0.5 border-2 transition-all cursor-pointer ${
+                        avatarUrl === p.url ? 'border-[#141f5b] scale-110' : 'border-transparent hover:border-gray-300'
+                      }`}
+                      title={p.label}
+                    >
+                      <img
+                        src={p.url}
+                        alt={p.label}
+                        referrerPolicy="no-referrer"
+                        className="w-7 h-7 rounded-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
 
           {/* Name Row */}
           <div className="grid grid-cols-2 gap-3">
@@ -284,6 +470,56 @@ export const MemberModal: React.FC<MemberModalProps> = ({
                 placeholder="password123"
               />
               <span className="text-[10px] text-gray-400">Credencial para inicio de sesión</span>
+            </div>
+          </div>
+
+          {/* Credential Delivery & Invitation Card */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <Mail className="w-3.5 h-3.5 text-blue-600" />
+                Entrega de Credenciales e Invitación
+              </span>
+              <span className="text-[10px] text-slate-500 font-mono bg-white px-2 py-0.5 rounded border border-slate-200">
+                Guardado en Firestore
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-600 leading-relaxed">
+              La contraseña se almacena de forma segura en la base de datos Firestore. Para que el colaborador reciba sus datos de acceso, puedes copiar la invitación o enviársela directamente a su correo:
+            </p>
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleCopyInvitation}
+                disabled={!email || !password}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 text-xs font-semibold cursor-pointer transition-colors shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Copiar invitación con clave al portapapeles"
+              >
+                {copiedInvite ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="text-emerald-700 font-bold">¡Copiado al portapapeles!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5 text-slate-600" />
+                    <span>Copiar invitación con clave</span>
+                  </>
+                )}
+              </button>
+
+              {email && (
+                <a
+                  href={getMailtoUrl()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-800 text-xs font-semibold transition-colors shadow-2xs"
+                  title="Abrir tu cliente de correo (Gmail, Outlook o Mail) con el mensaje listo"
+                >
+                  <Mail className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Enviar por correo (Email)</span>
+                </a>
+              )}
             </div>
           </div>
 
@@ -553,24 +789,63 @@ export const MemberModal: React.FC<MemberModalProps> = ({
         </div>
 
         {/* Modal Actions - Fixed at bottom, always visible */}
-        <div className="p-3.5 bg-gray-50/95 border-t border-gray-200 flex items-center justify-end gap-2 shrink-0 rounded-b-2xl">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-3.5 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-100 transition-colors font-semibold cursor-pointer shadow-2xs text-xs"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#141f5b] hover:bg-[#1a2875] text-white font-semibold transition-colors shadow-xs cursor-pointer text-xs"
-          >
-            <Save className="w-3.5 h-3.5" />
-            <span>Guardar Cambios</span>
-          </button>
+        <div className="p-3.5 bg-gray-50/95 border-t border-gray-200 flex items-center justify-between gap-2 shrink-0 rounded-b-2xl">
+          <div>
+            {isEditing && onDelete && (isAdmin || isSelf) && (
+              memberToEdit?.role === 'admin' ? (
+                <span className="text-xs text-purple-700 bg-purple-50 px-2.5 py-1.5 rounded-lg font-bold border border-purple-200 flex items-center gap-1.5 shadow-2xs cursor-default">
+                  <Shield className="w-3.5 h-3.5 text-purple-600" />
+                  <span>Admin protegido</span>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleDeleteThisMember}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200 transition-colors font-semibold text-xs cursor-pointer shadow-2xs"
+                  title="Eliminar este colaborador del equipo"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                  <span>Eliminar Colaborador</span>
+                </button>
+              )
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3.5 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-100 transition-colors font-semibold cursor-pointer shadow-2xs text-xs"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#141f5b] hover:bg-[#1a2875] text-white font-semibold transition-colors shadow-xs cursor-pointer text-xs"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>Guardar Cambios</span>
+            </button>
+          </div>
         </div>
       </form>
     </div>
+
+    {/* Safe In-App Confirmation Modal */}
+    {memberToEdit && (
+      <ConfirmDeleteModal
+        isOpen={isConfirmingDelete}
+        onClose={() => setIsConfirmingDelete(false)}
+        onConfirm={() => {
+          if (onDelete && memberToEdit.role !== 'admin') {
+            onDelete(memberToEdit.id);
+          }
+          setIsConfirmingDelete(false);
+          onClose();
+        }}
+        membersToDelete={[memberToEdit]}
+      />
+    )}
   </div>
 );
 };
