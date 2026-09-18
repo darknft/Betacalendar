@@ -177,36 +177,66 @@ export function getMemberMeetingSlots(member: Member): MeetingSlot[] {
 }
 
 /**
- * Returns active meeting slots configured for a member for Weekends (Saturday and Sunday).
+ * Returns active meeting slots configured for a member for Saturday.
  */
-export function getMemberWeekendSlots(member: Member): MeetingSlot[] {
+export function getMemberSaturdaySlots(member: Member): MeetingSlot[] {
+  if (member.saturdaySlots !== undefined) {
+    return member.saturdaySlots;
+  }
+  // Fallback to legacy weekendSlots
   return member.weekendSlots || [];
 }
 
 /**
+ * Returns active meeting slots configured for a member for Sunday.
+ */
+export function getMemberSundaySlots(member: Member): MeetingSlot[] {
+  if (member.sundaySlots !== undefined) {
+    return member.sundaySlots;
+  }
+  // Fallback to legacy weekendSlots
+  return member.weekendSlots || [];
+}
+
+/**
+ * Legacy helper for weekend slots
+ */
+export function getMemberWeekendSlots(member: Member): MeetingSlot[] {
+  const sat = getMemberSaturdaySlots(member);
+  const sun = getMemberSundaySlots(member);
+  return sat.length > 0 ? sat : sun;
+}
+
+/**
  * Formats all meeting slots for a member in a human-readable 12-hour string
- * (e.g. "Lun-Vie: 5:00 pm - 11:00 pm | Sáb-Dom: 10:00 am - 12:00 pm")
+ * (e.g. "Lun-Vie: 5:00 pm - 11:00 pm | Sáb: 10:00 am - 12:00 pm | Dom: Libre")
  */
 export function formatMeetingSlotsSummary(member: Member): string {
   const weekdaySlots = getMemberMeetingSlots(member);
-  const weekendSlots = getMemberWeekendSlots(member);
+  const saturdaySlots = getMemberSaturdaySlots(member);
+  const sundaySlots = getMemberSundaySlots(member);
 
   const weekdayText = weekdaySlots.length > 0
     ? `Lun-Vie: ${weekdaySlots.map((s) => `${formatTime24to12(s.start)} - ${formatTime24to12(s.end)}`).join(', ')}`
     : 'Lun-Vie: Sin definir';
 
-  const weekendText = weekendSlots.length > 0
-    ? `Sáb-Dom: ${weekendSlots.map((s) => `${formatTime24to12(s.start)} - ${formatTime24to12(s.end)}`).join(', ')}`
-    : 'Sáb-Dom: Sin disponibilidad';
+  const saturdayText = saturdaySlots.length > 0
+    ? `Sáb: ${saturdaySlots.map((s) => `${formatTime24to12(s.start)} - ${formatTime24to12(s.end)}`).join(', ')}`
+    : 'Sáb: Libre';
 
-  return `${weekdayText} | ${weekendText}`;
+  const sundayText = sundaySlots.length > 0
+    ? `Dom: ${sundaySlots.map((s) => `${formatTime24to12(s.start)} - ${formatTime24to12(s.end)}`).join(', ')}`
+    : 'Dom: Libre';
+
+  return `${weekdayText} | ${saturdayText} | ${sundayText}`;
 }
 
 /**
  * Checks if a member is available and not busy at a given UTC time slot.
  * Evaluates against:
  * - Weekdays (Monday - Friday): member.meetingSlots (or meetingStart/End / work hours)
- * - Weekends (Saturday - Sunday): member.weekendSlots (dedicated slots for Saturday and Sunday)
+ * - Saturday: member.saturdaySlots
+ * - Sunday: member.sundaySlots
  */
 export function isMemberAvailableAtSlot(
   member: Member,
@@ -223,16 +253,24 @@ export function isMemberAvailableAtSlot(
   const slotStartMs = new Date(slotStartIsoUtc).getTime();
   const slotEndMs = new Date(slotEndIsoUtc).getTime();
 
-  // Determine whether slot falls on Monday-Friday (weekday) or Saturday-Sunday (weekend) in member's timezone
+  // Determine day of week in member's timezone: 0 is Sunday, 6 is Saturday, 1-5 is Mon-Fri
   const [year, month, day] = slotDateInMemberTz.split('-').map(Number);
-  const dayOfWeek = new Date(Date.UTC(year, month - 1, day)).getUTCDay(); // 0 is Sunday, 6 is Saturday
-  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  const dayOfWeek = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  const isSaturday = dayOfWeek === 6;
+  const isSunday = dayOfWeek === 0;
 
   if (useMeetingHours) {
-    const slots = isWeekend ? getMemberWeekendSlots(member) : getMemberMeetingSlots(member);
+    let slots: MeetingSlot[];
+    if (isSaturday) {
+      slots = getMemberSaturdaySlots(member);
+    } else if (isSunday) {
+      slots = getMemberSundaySlots(member);
+    } else {
+      slots = getMemberMeetingSlots(member);
+    }
 
-    // If it's weekend and member has no weekend slots configured, they are not available for meetings on weekend
-    if (slots.length === 0) {
+    // If it's Saturday or Sunday and member has no slots configured for that specific day, they are not available
+    if ((isSaturday || isSunday) && slots.length === 0) {
       return false;
     }
 
@@ -252,12 +290,12 @@ export function isMemberAvailableAtSlot(
   }
 
   // Work hours check
-  if (isWeekend) {
-    const weekendSlots = getMemberWeekendSlots(member);
-    if (weekendSlots.length === 0) {
+  if (isSaturday || isSunday) {
+    const slots = isSaturday ? getMemberSaturdaySlots(member) : getMemberSundaySlots(member);
+    if (slots.length === 0) {
       return false; // Weekends are non-working days unless weekend slots are defined
     }
-    return weekendSlots.some((s) => {
+    return slots.some((s) => {
       const memberStartUtc = localTimeToUtcIso(slotDateInMemberTz, s.start, member.timeZone);
       const memberEndUtc = localTimeToUtcIso(slotDateInMemberTz, s.end, member.timeZone);
       const rangeStartMs = new Date(memberStartUtc).getTime();

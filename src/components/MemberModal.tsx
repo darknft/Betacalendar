@@ -16,7 +16,8 @@ import {
   Copy,
   Check,
   Calendar,
-  Sun
+  Sun,
+  Moon
 } from 'lucide-react';
 import { Member, MemberType, MeetingSlot } from '../types';
 import { COMMON_TIMEZONES, COUNTRY_FLAG_MAP } from '../data/mockMembers';
@@ -65,8 +66,9 @@ export const MemberModal: React.FC<MemberModalProps> = ({
   const [meetingSlots, setMeetingSlots] = useState<MeetingSlot[]>([
     { start: '09:00', end: '12:00' }
   ]);
-  const [weekendSlots, setWeekendSlots] = useState<MeetingSlot[]>([]);
-  const [activeSlotDayType, setActiveSlotDayType] = useState<'weekdays' | 'weekends'>('weekdays');
+  const [saturdaySlots, setSaturdaySlots] = useState<MeetingSlot[]>([]);
+  const [sundaySlots, setSundaySlots] = useState<MeetingSlot[]>([]);
+  const [activeSlotDayType, setActiveSlotDayType] = useState<'weekdays' | 'saturday' | 'sunday'>('weekdays');
   const [error, setError] = useState<string | null>(null);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
@@ -108,7 +110,19 @@ export const MemberModal: React.FC<MemberModalProps> = ({
         setMeetingSlots([{ start: '09:00', end: '12:00' }]);
       }
 
-      setWeekendSlots(memberToEdit.weekendSlots || []);
+      if (memberToEdit.saturdaySlots !== undefined) {
+        setSaturdaySlots(memberToEdit.saturdaySlots);
+      } else if (memberToEdit.weekendSlots) {
+        setSaturdaySlots(memberToEdit.weekendSlots);
+      } else {
+        setSaturdaySlots([]);
+      }
+
+      if (memberToEdit.sundaySlots !== undefined) {
+        setSundaySlots(memberToEdit.sundaySlots);
+      } else {
+        setSundaySlots([]);
+      }
     } else {
       setFirstName('');
       setLastName('');
@@ -122,7 +136,8 @@ export const MemberModal: React.FC<MemberModalProps> = ({
       setWorkEnd('17:00');
       setAvatarUrl('');
       setMeetingSlots([{ start: '09:00', end: '12:00' }]);
-      setWeekendSlots([]);
+      setSaturdaySlots([]);
+      setSundaySlots([]);
     }
     setActiveSlotDayType('weekdays');
     setError(null);
@@ -203,37 +218,70 @@ export const MemberModal: React.FC<MemberModalProps> = ({
     handleAddQuickPreset(startStr, endStr);
   };
 
-  // Weekend slots handlers
-  const handleUpdateWeekendSlot = (index: number, field: 'start' | 'end', val: string) => {
-    setWeekendSlots((prev) =>
+  // Saturday slots handlers
+  const handleUpdateSaturdaySlot = (index: number, field: 'start' | 'end', val: string) => {
+    setSaturdaySlots((prev) =>
       prev.map((s, i) => (i === index ? { ...s, [field]: val } : s))
     );
   };
 
-  const handleRemoveWeekendSlot = (index: number) => {
-    setWeekendSlots((prev) => prev.filter((_, i) => i !== index));
+  const handleRemoveSaturdaySlot = (index: number) => {
+    setSaturdaySlots((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleAddWeekendSlot = (start: string = '10:00', end: string = '12:00') => {
-    setWeekendSlots((prev) => [...prev, { start, end }]);
+  const handleAddSaturdaySlot = (start: string = '10:00', end: string = '12:00') => {
+    setSaturdaySlots((prev) => [...prev, { start, end }]);
   };
 
-  const handleAddWeekendQuickPreset = (start: string, end: string) => {
-    const exists = weekendSlots.some((s) => s.start === start && s.end === end);
+  const handleAddSaturdayQuickPreset = (start: string, end: string) => {
+    const exists = saturdaySlots.some((s) => s.start === start && s.end === end);
     if (!exists) {
-      setWeekendSlots((prev) => [...prev, { start, end }]);
+      setSaturdaySlots((prev) => [...prev, { start, end }]);
     }
   };
 
-  const handleAddWeekendSingleHour = (hour24: number) => {
+  const handleAddSaturdaySingleHour = (hour24: number) => {
     const startStr = `${String(hour24).padStart(2, '0')}:00`;
     const nextH = (hour24 + 1) % 24;
     const endStr = `${String(nextH).padStart(2, '0')}:00`;
-    handleAddWeekendQuickPreset(startStr, endStr);
+    handleAddSaturdayQuickPreset(startStr, endStr);
   };
 
-  const handleClearWeekendSlots = () => {
-    setWeekendSlots([]);
+  const handleClearSaturdaySlots = () => {
+    setSaturdaySlots([]);
+  };
+
+  // Sunday slots handlers
+  const handleUpdateSundaySlot = (index: number, field: 'start' | 'end', val: string) => {
+    setSundaySlots((prev) =>
+      prev.map((s, i) => (i === index ? { ...s, [field]: val } : s))
+    );
+  };
+
+  const handleRemoveSundaySlot = (index: number) => {
+    setSundaySlots((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddSundaySlot = (start: string = '10:00', end: string = '12:00') => {
+    setSundaySlots((prev) => [...prev, { start, end }]);
+  };
+
+  const handleAddSundayQuickPreset = (start: string, end: string) => {
+    const exists = sundaySlots.some((s) => s.start === start && s.end === end);
+    if (!exists) {
+      setSundaySlots((prev) => [...prev, { start, end }]);
+    }
+  };
+
+  const handleAddSundaySingleHour = (hour24: number) => {
+    const startStr = `${String(hour24).padStart(2, '0')}:00`;
+    const nextH = (hour24 + 1) % 24;
+    const endStr = `${String(nextH).padStart(2, '0')}:00`;
+    handleAddSundayQuickPreset(startStr, endStr);
+  };
+
+  const handleClearSundaySlots = () => {
+    setSundaySlots([]);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -274,10 +322,18 @@ export const MemberModal: React.FC<MemberModalProps> = ({
       }
     }
 
-    for (let i = 0; i < weekendSlots.length; i++) {
-      const s = weekendSlots[i];
+    for (let i = 0; i < saturdaySlots.length; i++) {
+      const s = saturdaySlots[i];
       if (!isValid24HourTime(s.start) || !isValid24HourTime(s.end)) {
-        setError(`El slot de Fin de Semana ${i + 1} (${s.start} - ${s.end}) debe tener formato de 24 horas HH:mm (ej. 10:00, 12:00).`);
+        setError(`El slot de Sábado ${i + 1} (${s.start} - ${s.end}) debe tener formato de 24 horas HH:mm (ej. 10:00, 12:00).`);
+        return;
+      }
+    }
+
+    for (let i = 0; i < sundaySlots.length; i++) {
+      const s = sundaySlots[i];
+      if (!isValid24HourTime(s.start) || !isValid24HourTime(s.end)) {
+        setError(`El slot de Domingo ${i + 1} (${s.start} - ${s.end}) debe tener formato de 24 horas HH:mm (ej. 10:00, 12:00).`);
         return;
       }
     }
@@ -303,7 +359,9 @@ export const MemberModal: React.FC<MemberModalProps> = ({
       meetingStart: meetingSlots[0]?.start || '09:00',
       meetingEnd: meetingSlots[0]?.end || '12:00',
       meetingSlots,
-      weekendSlots,
+      saturdaySlots,
+      sundaySlots,
+      weekendSlots: saturdaySlots.length > 0 ? saturdaySlots : sundaySlots, // fallback compatibility
       role: isAdmin ? role : (memberToEdit?.role || 'member'),
       avatarUrl: avatarUrl.trim() || undefined,
       busySlots: memberToEdit?.busySlots || [],
@@ -677,33 +735,41 @@ export const MemberModal: React.FC<MemberModalProps> = ({
                   Horas Libres Destinadas para Reunión (Slots Disponibles)
                 </span>
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-white text-[#141f5b] font-bold border border-[#acc917] shadow-2xs">
                   Lun-Vie: {meetingSlots.length} {meetingSlots.length === 1 ? 'franja' : 'franjas'}
                 </span>
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold shadow-2xs border ${
-                  weekendSlots.length > 0 
+                  saturdaySlots.length > 0 
                     ? 'bg-amber-100 text-amber-900 border-amber-300' 
                     : 'bg-white text-gray-500 border-gray-200'
                 }`}>
-                  Sáb-Dom: {weekendSlots.length > 0 ? `${weekendSlots.length} franjas` : '0h libre'}
+                  Sáb: {saturdaySlots.length > 0 ? `${saturdaySlots.length} franjas` : 'Libre'}
+                </span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold shadow-2xs border ${
+                  sundaySlots.length > 0 
+                    ? 'bg-indigo-100 text-indigo-900 border-indigo-300' 
+                    : 'bg-white text-gray-500 border-gray-200'
+                }`}>
+                  Dom: {sundaySlots.length > 0 ? `${sundaySlots.length} franjas` : 'Libre'}
                 </span>
               </div>
             </div>
 
-            {/* Sub-selector tabs between Weekdays (Lun-Vie) and Weekends (Sáb-Dom) */}
-            <div className="grid grid-cols-2 gap-1.5 p-1 bg-white/70 rounded-lg border border-[#acc917]/30">
+            {/* Sub-selector tabs: Lun-Vie, Sábado, Domingo separados */}
+            <div className="grid grid-cols-3 gap-1.5 p-1 bg-white/70 rounded-lg border border-[#acc917]/30">
               <button
                 type="button"
                 onClick={() => setActiveSlotDayType('weekdays')}
-                className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded-md text-xs font-bold transition-all cursor-pointer ${
                   activeSlotDayType === 'weekdays'
                     ? 'bg-[#141f5b] text-white shadow-xs'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-white'
                 }`}
               >
                 <Calendar className="w-3.5 h-3.5" />
-                <span>De Lunes a Viernes</span>
+                <span className="hidden sm:inline">Lunes a Viernes</span>
+                <span className="sm:hidden">Lun-Vie</span>
                 <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
                   activeSlotDayType === 'weekdays' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
                 }`}>
@@ -713,21 +779,41 @@ export const MemberModal: React.FC<MemberModalProps> = ({
 
               <button
                 type="button"
-                onClick={() => setActiveSlotDayType('weekends')}
-                className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                  activeSlotDayType === 'weekends'
-                    ? 'bg-[#141f5b] text-white shadow-xs'
+                onClick={() => setActiveSlotDayType('saturday')}
+                className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                  activeSlotDayType === 'saturday'
+                    ? 'bg-amber-600 text-white shadow-xs'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-white'
                 }`}
               >
                 <Sun className="w-3.5 h-3.5 text-amber-400" />
-                <span>Sábado y Domingo</span>
+                <span>Sábado</span>
                 <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                  activeSlotDayType === 'weekends' 
+                  activeSlotDayType === 'saturday' 
                     ? 'bg-white/20 text-white' 
-                    : weekendSlots.length > 0 ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-400'
+                    : saturdaySlots.length > 0 ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-400'
                 }`}>
-                  {weekendSlots.length > 0 ? weekendSlots.length : '0'}
+                  {saturdaySlots.length > 0 ? saturdaySlots.length : '0'}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveSlotDayType('sunday')}
+                className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                  activeSlotDayType === 'sunday'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-white'
+                }`}
+              >
+                <Moon className="w-3.5 h-3.5 text-indigo-300" />
+                <span>Domingo</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                  activeSlotDayType === 'sunday' 
+                    ? 'bg-white/20 text-white' 
+                    : sundaySlots.length > 0 ? 'bg-indigo-100 text-indigo-800' : 'bg-gray-100 text-gray-400'
+                }`}>
+                  {sundaySlots.length > 0 ? sundaySlots.length : '0'}
                 </span>
               </button>
             </div>
@@ -901,13 +987,13 @@ export const MemberModal: React.FC<MemberModalProps> = ({
               </div>
             )}
 
-            {/* TAB 2: Sábado y Domingo */}
-            {activeSlotDayType === 'weekends' && (
+            {/* TAB 2: Sábado */}
+            {activeSlotDayType === 'saturday' && (
               <div className="space-y-2.5 animate-in fade-in duration-150">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-amber-900 flex items-center gap-1">
                     <Sun className="w-3.5 h-3.5 text-amber-500" />
-                    ☀️ Disponibilidad para Sábado y Domingo:
+                    ☀️ Disponibilidad solo para Sábado:
                   </span>
                   <span className="text-[10px] text-gray-500">
                     Opcional (1 hora, rango o ninguna)
@@ -915,22 +1001,22 @@ export const MemberModal: React.FC<MemberModalProps> = ({
                 </div>
 
                 <p className="text-[11px] text-gray-600 leading-snug">
-                  Aquí puedes hacer espacio el sábado o domingo especificando <strong>1 sola hora</strong>, <strong>n cantidad de horas</strong> o dejarlo en 0 si no laboras fines de semana.
+                  Configura tus horas disponibles exclusivamente para los <strong>Sábados</strong>. Puedes definir 1 sola hora, n cantidad de horas o dejarlo vacío (0h) si no te reúnes este día.
                 </p>
 
-                {weekendSlots.length === 0 ? (
+                {saturdaySlots.length === 0 ? (
                   <div className="bg-white/80 p-3 rounded-xl border border-amber-200 text-center space-y-2">
                     <div className="text-amber-900 font-semibold text-xs flex items-center justify-center gap-1.5">
                       <Sun className="w-4 h-4 text-amber-500" />
-                      <span>Sin horas asignadas para Sábado y Domingo</span>
+                      <span>Sin horas asignadas para Sábado (Día Libre)</span>
                     </div>
                     <p className="text-[11px] text-gray-500 max-w-sm mx-auto">
-                      Actualmente estás libre los fines de semana. Si deseas destinar 1 hora o un rango para llamadas, pulsa un atajo:
+                      Actualmente estás libre los sábados. Si deseas destinar 1 hora o un rango para llamadas, pulsa un atajo:
                     </p>
                     <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
                       <button
                         type="button"
-                        onClick={() => handleAddWeekendSingleHour(10)}
+                        onClick={() => handleAddSaturdaySingleHour(10)}
                         className="px-2.5 py-1 rounded bg-[#141f5b] text-white text-xs font-semibold shadow-2xs hover:bg-[#1a2875] cursor-pointer"
                         title="Agregar 10:00 am a 11:00 am"
                       >
@@ -938,7 +1024,7 @@ export const MemberModal: React.FC<MemberModalProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleAddWeekendSingleHour(11)}
+                        onClick={() => handleAddSaturdaySingleHour(11)}
                         className="px-2.5 py-1 rounded bg-white text-[#141f5b] border border-gray-300 text-xs font-semibold hover:bg-gray-50 shadow-2xs cursor-pointer"
                         title="Agregar 11:00 am a 12:00 pm"
                       >
@@ -946,7 +1032,7 @@ export const MemberModal: React.FC<MemberModalProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleAddWeekendQuickPreset('10:00', '12:00')}
+                        onClick={() => handleAddSaturdayQuickPreset('10:00', '12:00')}
                         className="px-2.5 py-1 rounded bg-white text-[#141f5b] border border-gray-300 text-xs font-semibold hover:bg-gray-50 shadow-2xs cursor-pointer"
                         title="Agregar 10:00 am a 12:00 pm"
                       >
@@ -954,7 +1040,7 @@ export const MemberModal: React.FC<MemberModalProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleAddWeekendSlot('15:00', '17:00')}
+                        onClick={() => handleAddSaturdaySlot('15:00', '17:00')}
                         className="px-2.5 py-1 rounded bg-white text-[#141f5b] border border-gray-300 text-xs font-semibold hover:bg-gray-50 shadow-2xs cursor-pointer"
                         title="Agregar 3:00 pm a 5:00 pm"
                       >
@@ -962,7 +1048,7 @@ export const MemberModal: React.FC<MemberModalProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleAddWeekendSlot('09:00', '11:00')}
+                        onClick={() => handleAddSaturdaySlot('09:00', '11:00')}
                         className="px-2.5 py-1 rounded bg-lime-50 text-lime-900 border border-lime-300 text-xs font-semibold hover:bg-lime-100 shadow-2xs cursor-pointer"
                       >
                         + Personalizar franja
@@ -971,9 +1057,9 @@ export const MemberModal: React.FC<MemberModalProps> = ({
                   </div>
                 ) : (
                   <>
-                    {/* List of configured weekend slots */}
+                    {/* List of configured Saturday slots */}
                     <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                      {weekendSlots.map((slot, index) => (
+                      {saturdaySlots.map((slot, index) => (
                         <div 
                           key={index}
                           className="bg-white p-2 rounded-lg border border-amber-200 shadow-2xs flex flex-col sm:flex-row sm:items-center gap-2 justify-between"
@@ -994,7 +1080,7 @@ export const MemberModal: React.FC<MemberModalProps> = ({
                               <input
                                 type="text"
                                 value={slot.start}
-                                onChange={(e) => handleUpdateWeekendSlot(index, 'start', e.target.value)}
+                                onChange={(e) => handleUpdateSaturdaySlot(index, 'start', e.target.value)}
                                 maxLength={5}
                                 placeholder="10:00"
                                 className="w-16 bg-amber-50/50 border border-amber-200 rounded px-1.5 py-1 text-gray-900 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
@@ -1004,7 +1090,7 @@ export const MemberModal: React.FC<MemberModalProps> = ({
                               <input
                                 type="text"
                                 value={slot.end}
-                                onChange={(e) => handleUpdateWeekendSlot(index, 'end', e.target.value)}
+                                onChange={(e) => handleUpdateSaturdaySlot(index, 'end', e.target.value)}
                                 maxLength={5}
                                 placeholder="11:00"
                                 className="w-16 bg-amber-50/50 border border-amber-200 rounded px-1.5 py-1 text-gray-900 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
@@ -1014,9 +1100,9 @@ export const MemberModal: React.FC<MemberModalProps> = ({
 
                             <button
                               type="button"
-                              onClick={() => handleRemoveWeekendSlot(index)}
+                              onClick={() => handleRemoveSaturdaySlot(index)}
                               className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
-                              title="Eliminar esta franja de fin de semana"
+                              title="Eliminar esta franja de sábado"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -1025,36 +1111,36 @@ export const MemberModal: React.FC<MemberModalProps> = ({
                       ))}
                     </div>
 
-                    {/* Actions for weekend slots */}
+                    {/* Actions for Saturday slots */}
                     <div className="flex items-center justify-between pt-1 border-t border-[#acc917]/30">
                       <button
                         type="button"
-                        onClick={() => handleAddWeekendSlot('10:00', '12:00')}
+                        onClick={() => handleAddSaturdaySlot('10:00', '12:00')}
                         className="flex items-center gap-1 text-xs font-bold text-[#141f5b] hover:text-[#1a2875] bg-white px-2.5 py-1.5 rounded-lg border border-[#acc917] hover:bg-lime-50 transition-colors shadow-2xs cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        <span>+ Agregar franja Sáb-Dom</span>
+                        <span>+ Agregar franja Sábado</span>
                       </button>
 
                       <button
                         type="button"
-                        onClick={handleClearWeekendSlots}
+                        onClick={handleClearSaturdaySlots}
                         className="text-xs text-gray-500 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded transition-colors cursor-pointer"
-                        title="Quitar todas las horas y dejar fin de semana libre"
+                        title="Quitar todas las horas y dejar sábado libre"
                       >
                         Dejar libre (0 horas)
                       </button>
                     </div>
 
-                    {/* Quick presets for weekend */}
+                    {/* Quick presets for Saturday */}
                     <div className="pt-2 border-t border-[#acc917]/20 space-y-1.5">
                       <span className="text-[10px] font-bold text-amber-900 uppercase tracking-wider block">
-                        Atajos para Sábado y Domingo:
+                        Atajos para Sábado:
                       </span>
                       <div className="flex flex-wrap gap-1.5">
                         <button
                           type="button"
-                          onClick={() => handleAddWeekendSingleHour(9)}
+                          onClick={() => handleAddSaturdaySingleHour(9)}
                           className="text-[11px] font-semibold bg-white hover:bg-amber-50 text-amber-900 px-2 py-1 rounded border border-amber-200 transition-colors cursor-pointer shadow-2xs"
                           title="Agregar 9:00 am (1 sola hora)"
                         >
@@ -1062,7 +1148,7 @@ export const MemberModal: React.FC<MemberModalProps> = ({
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleAddWeekendSingleHour(10)}
+                          onClick={() => handleAddSaturdaySingleHour(10)}
                           className="text-[11px] font-semibold bg-white hover:bg-amber-50 text-amber-900 px-2 py-1 rounded border border-amber-200 transition-colors cursor-pointer shadow-2xs"
                           title="Agregar 10:00 am (1 sola hora)"
                         >
@@ -1070,7 +1156,7 @@ export const MemberModal: React.FC<MemberModalProps> = ({
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleAddWeekendQuickPreset('10:00', '12:00')}
+                          onClick={() => handleAddSaturdayQuickPreset('10:00', '12:00')}
                           className="text-[11px] font-semibold bg-white hover:bg-amber-50 text-amber-900 px-2 py-1 rounded border border-amber-200 transition-colors cursor-pointer shadow-2xs"
                           title="Agregar 10:00 am a 12:00 pm (2 horas)"
                         >
@@ -1078,26 +1164,18 @@ export const MemberModal: React.FC<MemberModalProps> = ({
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleAddWeekendQuickPreset('15:00', '17:00')}
+                          onClick={() => handleAddSaturdayQuickPreset('15:00', '17:00')}
                           className="text-[11px] font-semibold bg-white hover:bg-amber-50 text-amber-900 px-2 py-1 rounded border border-amber-200 transition-colors cursor-pointer shadow-2xs"
                           title="Agregar 3:00 pm a 5:00 pm"
                         >
                           + 3:00 pm - 5:00 pm
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleAddWeekendQuickPreset('17:00', '19:00')}
-                          className="text-[11px] font-semibold bg-white hover:bg-amber-50 text-amber-900 px-2 py-1 rounded border border-amber-200 transition-colors cursor-pointer shadow-2xs"
-                          title="Agregar 5:00 pm a 7:00 pm"
-                        >
-                          + 5:00 pm - 7:00 pm
-                        </button>
                       </div>
 
-                      {/* Single hours quick selector for weekend */}
+                      {/* Single hours quick selector for Saturday */}
                       <div className="pt-1.5 space-y-1">
                         <span className="text-[10px] text-gray-500 block">
-                          Toca una hora para activarla/desactivarla el fin de semana (1 hora):
+                          Toca una hora para activarla/desactivarla el Sábado (1 hora):
                         </span>
                         <div className="flex flex-wrap gap-1">
                           {[8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21].map((h) => {
@@ -1105,7 +1183,7 @@ export const MemberModal: React.FC<MemberModalProps> = ({
                             const startStr = `${String(h).padStart(2, '0')}:00`;
                             const nextH = (h + 1) % 24;
                             const endStr = `${String(nextH).padStart(2, '0')}:00`;
-                            const isSelected = weekendSlots.some(
+                            const isSelected = saturdaySlots.some(
                               (s) => s.start === startStr && s.end === endStr
                             );
 
@@ -1115,11 +1193,11 @@ export const MemberModal: React.FC<MemberModalProps> = ({
                                 type="button"
                                 onClick={() => {
                                   if (isSelected) {
-                                    setWeekendSlots((prev) =>
+                                    setSaturdaySlots((prev) =>
                                       prev.filter((s) => !(s.start === startStr && s.end === endStr))
                                     );
                                   } else {
-                                    handleAddWeekendSingleHour(h);
+                                    handleAddSaturdaySingleHour(h);
                                   }
                                 }}
                                 className={`text-[10px] font-mono px-1.5 py-0.5 rounded transition-colors cursor-pointer font-bold ${
@@ -1127,7 +1205,239 @@ export const MemberModal: React.FC<MemberModalProps> = ({
                                     ? 'bg-amber-600 text-white shadow-2xs'
                                     : 'bg-white text-gray-700 hover:bg-amber-50 border border-gray-200'
                                 }`}
-                                title={isSelected ? `Quitar ${label} del fin de semana` : `Agregar ${label} (1 hora)`}
+                                title={isSelected ? `Quitar ${label} del sábado` : `Agregar ${label} (1 hora)`}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* TAB 3: Domingo */}
+            {activeSlotDayType === 'sunday' && (
+              <div className="space-y-2.5 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-indigo-900 flex items-center gap-1">
+                    <Moon className="w-3.5 h-3.5 text-indigo-500" />
+                    🌙 Disponibilidad solo para Domingo:
+                  </span>
+                  <span className="text-[10px] text-gray-500">
+                    Opcional (1 hora, rango o ninguna)
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-gray-600 leading-snug">
+                  Configura tus horas disponibles exclusivamente para los <strong>Domingos</strong>. Puedes definir 1 sola hora, n cantidad de horas o dejarlo vacío (0h) si descansas este día.
+                </p>
+
+                {sundaySlots.length === 0 ? (
+                  <div className="bg-white/80 p-3 rounded-xl border border-indigo-200 text-center space-y-2">
+                    <div className="text-indigo-900 font-semibold text-xs flex items-center justify-center gap-1.5">
+                      <Moon className="w-4 h-4 text-indigo-500" />
+                      <span>Sin horas asignadas para Domingo (Día Libre)</span>
+                    </div>
+                    <p className="text-[11px] text-gray-500 max-w-sm mx-auto">
+                      Actualmente estás libre los domingos. Si deseas destinar 1 hora o un rango para llamadas, pulsa un atajo:
+                    </p>
+                    <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => handleAddSundaySingleHour(10)}
+                        className="px-2.5 py-1 rounded bg-[#141f5b] text-white text-xs font-semibold shadow-2xs hover:bg-[#1a2875] cursor-pointer"
+                        title="Agregar 10:00 am a 11:00 am"
+                      >
+                        + 1 sola hora: 10:00 am (1h)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAddSundaySingleHour(11)}
+                        className="px-2.5 py-1 rounded bg-white text-[#141f5b] border border-gray-300 text-xs font-semibold hover:bg-gray-50 shadow-2xs cursor-pointer"
+                        title="Agregar 11:00 am a 12:00 pm"
+                      >
+                        + 11:00 am (1h)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAddSundayQuickPreset('10:00', '12:00')}
+                        className="px-2.5 py-1 rounded bg-white text-[#141f5b] border border-gray-300 text-xs font-semibold hover:bg-gray-50 shadow-2xs cursor-pointer"
+                        title="Agregar 10:00 am a 12:00 pm"
+                      >
+                        + 10:00 am - 12:00 pm (2h)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAddSundaySlot('16:00', '18:00')}
+                        className="px-2.5 py-1 rounded bg-white text-[#141f5b] border border-gray-300 text-xs font-semibold hover:bg-gray-50 shadow-2xs cursor-pointer"
+                        title="Agregar 4:00 pm a 6:00 pm"
+                      >
+                        + 4:00 pm - 6:00 pm
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAddSundaySlot('19:00', '21:00')}
+                        className="px-2.5 py-1 rounded bg-lime-50 text-lime-900 border border-lime-300 text-xs font-semibold hover:bg-lime-100 shadow-2xs cursor-pointer"
+                      >
+                        + Personalizar franja
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* List of configured Sunday slots */}
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {sundaySlots.map((slot, index) => (
+                        <div 
+                          key={index}
+                          className="bg-white p-2 rounded-lg border border-indigo-200 shadow-2xs flex flex-col sm:flex-row sm:items-center gap-2 justify-between"
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                              {index + 1}
+                            </span>
+                            <div className="font-bold text-xs text-indigo-950 flex items-center gap-1 truncate">
+                              <span>{formatTime24to12(slot.start) || slot.start}</span>
+                              <span className="text-gray-400 font-normal">→</span>
+                              <span>{formatTime24to12(slot.end) || slot.end}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="text"
+                                value={slot.start}
+                                onChange={(e) => handleUpdateSundaySlot(index, 'start', e.target.value)}
+                                maxLength={5}
+                                placeholder="10:00"
+                                className="w-16 bg-indigo-50/50 border border-indigo-200 rounded px-1.5 py-1 text-gray-900 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                title="Hora inicio (HH:mm)"
+                              />
+                              <span className="text-gray-400 text-xs font-mono">-</span>
+                              <input
+                                type="text"
+                                value={slot.end}
+                                onChange={(e) => handleUpdateSundaySlot(index, 'end', e.target.value)}
+                                maxLength={5}
+                                placeholder="11:00"
+                                className="w-16 bg-indigo-50/50 border border-indigo-200 rounded px-1.5 py-1 text-gray-900 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                title="Hora fin (HH:mm)"
+                              />
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSundaySlot(index)}
+                              className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                              title="Eliminar esta franja de domingo"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Actions for Sunday slots */}
+                    <div className="flex items-center justify-between pt-1 border-t border-[#acc917]/30">
+                      <button
+                        type="button"
+                        onClick={() => handleAddSundaySlot('10:00', '12:00')}
+                        className="flex items-center gap-1 text-xs font-bold text-[#141f5b] hover:text-[#1a2875] bg-white px-2.5 py-1.5 rounded-lg border border-[#acc917] hover:bg-lime-50 transition-colors shadow-2xs cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>+ Agregar franja Domingo</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleClearSundaySlots}
+                        className="text-xs text-gray-500 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded transition-colors cursor-pointer"
+                        title="Quitar todas las horas y dejar domingo libre"
+                      >
+                        Dejar libre (0 horas)
+                      </button>
+                    </div>
+
+                    {/* Quick presets for Sunday */}
+                    <div className="pt-2 border-t border-[#acc917]/20 space-y-1.5">
+                      <span className="text-[10px] font-bold text-indigo-900 uppercase tracking-wider block">
+                        Atajos para Domingo:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleAddSundaySingleHour(10)}
+                          className="text-[11px] font-semibold bg-white hover:bg-indigo-50 text-indigo-900 px-2 py-1 rounded border border-indigo-200 transition-colors cursor-pointer shadow-2xs"
+                          title="Agregar 10:00 am (1 sola hora)"
+                        >
+                          + 10:00 am (1h)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAddSundaySingleHour(11)}
+                          className="text-[11px] font-semibold bg-white hover:bg-indigo-50 text-indigo-900 px-2 py-1 rounded border border-indigo-200 transition-colors cursor-pointer shadow-2xs"
+                          title="Agregar 11:00 am (1 sola hora)"
+                        >
+                          + 11:00 am (1h)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAddSundayQuickPreset('10:00', '12:00')}
+                          className="text-[11px] font-semibold bg-white hover:bg-indigo-50 text-indigo-900 px-2 py-1 rounded border border-indigo-200 transition-colors cursor-pointer shadow-2xs"
+                          title="Agregar 10:00 am a 12:00 pm (2 horas)"
+                        >
+                          + 10:00 am - 12:00 pm (2h)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAddSundayQuickPreset('16:00', '18:00')}
+                          className="text-[11px] font-semibold bg-white hover:bg-indigo-50 text-indigo-900 px-2 py-1 rounded border border-indigo-200 transition-colors cursor-pointer shadow-2xs"
+                          title="Agregar 4:00 pm a 6:00 pm"
+                        >
+                          + 4:00 pm - 6:00 pm
+                        </button>
+                      </div>
+
+                      {/* Single hours quick selector for Sunday */}
+                      <div className="pt-1.5 space-y-1">
+                        <span className="text-[10px] text-gray-500 block">
+                          Toca una hora para activarla/desactivarla el Domingo (1 hora):
+                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          {[8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21].map((h) => {
+                            const label = h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`;
+                            const startStr = `${String(h).padStart(2, '0')}:00`;
+                            const nextH = (h + 1) % 24;
+                            const endStr = `${String(nextH).padStart(2, '0')}:00`;
+                            const isSelected = sundaySlots.some(
+                              (s) => s.start === startStr && s.end === endStr
+                            );
+
+                            return (
+                              <button
+                                key={h}
+                                type="button"
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setSundaySlots((prev) =>
+                                      prev.filter((s) => !(s.start === startStr && s.end === endStr))
+                                    );
+                                  } else {
+                                    handleAddSundaySingleHour(h);
+                                  }
+                                }}
+                                className={`text-[10px] font-mono px-1.5 py-0.5 rounded transition-colors cursor-pointer font-bold ${
+                                  isSelected
+                                    ? 'bg-indigo-600 text-white shadow-2xs'
+                                    : 'bg-white text-gray-700 hover:bg-indigo-50 border border-gray-200'
+                                }`}
+                                title={isSelected ? `Quitar ${label} del domingo` : `Agregar ${label} (1 hora)`}
                               >
                                 {label}
                               </button>

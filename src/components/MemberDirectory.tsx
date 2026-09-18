@@ -13,11 +13,12 @@ import {
   Trash2,
   Shield,
   Key,
-  Sun
+  Sun,
+  Moon
 } from 'lucide-react';
 import { Member } from '../types';
 import { COUNTRY_FLAG_MAP } from '../data/mockMembers';
-import { formatInTimezone, localTimeToUtcIso, getMemberMeetingSlots, getMemberWeekendSlots, formatTime24to12 } from '../utils/timeEngine';
+import { formatInTimezone, localTimeToUtcIso, getMemberMeetingSlots, getMemberSaturdaySlots, getMemberSundaySlots, formatTime24to12 } from '../utils/timeEngine';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import { InviteModal } from './InviteModal';
 
@@ -335,22 +336,22 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
                     </div>
                   </div>
 
-                  {/* Sábado y Domingo */}
+                  {/* Sábado */}
                   <div className="space-y-1 pt-1.5 border-t border-[#acc917]/30">
                     <div className="flex items-center justify-between text-[10px]">
                       <span className="font-bold text-amber-900 flex items-center gap-1">
                         <Sun className="w-3 h-3 text-amber-600" />
-                        Sáb - Dom:
+                        Sábado:
                       </span>
                       <span className="text-gray-500 font-medium">
-                        {getMemberWeekendSlots(member).length > 0 
-                          ? `${getMemberWeekendSlots(member).length} ${getMemberWeekendSlots(member).length === 1 ? 'franja' : 'franjas'}` 
+                        {getMemberSaturdaySlots(member).length > 0 
+                          ? `${getMemberSaturdaySlots(member).length} ${getMemberSaturdaySlots(member).length === 1 ? 'franja' : 'franjas'}` 
                           : 'Libre'}
                       </span>
                     </div>
-                    {getMemberWeekendSlots(member).length > 0 ? (
+                    {getMemberSaturdaySlots(member).length > 0 ? (
                       <div className="flex flex-wrap gap-1">
-                        {getMemberWeekendSlots(member).map((s, sIdx) => (
+                        {getMemberSaturdaySlots(member).map((s, sIdx) => (
                           <span
                             key={sIdx}
                             className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-50 text-amber-900 font-bold border border-amber-300 shadow-2xs"
@@ -361,7 +362,38 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
                       </div>
                     ) : (
                       <span className="text-[10px] text-gray-500 italic block">
-                        Sin horas de reunión en fin de semana
+                        Sin horas de reunión (Día Libre)
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Domingo */}
+                  <div className="space-y-1 pt-1.5 border-t border-[#acc917]/20">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="font-bold text-indigo-900 flex items-center gap-1">
+                        <Moon className="w-3 h-3 text-indigo-600" />
+                        Domingo:
+                      </span>
+                      <span className="text-gray-500 font-medium">
+                        {getMemberSundaySlots(member).length > 0 
+                          ? `${getMemberSundaySlots(member).length} ${getMemberSundaySlots(member).length === 1 ? 'franja' : 'franjas'}` 
+                          : 'Libre'}
+                      </span>
+                    </div>
+                    {getMemberSundaySlots(member).length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {getMemberSundaySlots(member).map((s, sIdx) => (
+                          <span
+                            key={sIdx}
+                            className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-50 text-indigo-900 font-bold border border-indigo-300 shadow-2xs"
+                          >
+                            {formatTime24to12(s.start)} - {formatTime24to12(s.end)}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-gray-500 italic block">
+                        Sin horas de reunión (Día Libre)
                       </span>
                     )}
                   </div>
