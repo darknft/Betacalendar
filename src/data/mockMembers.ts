@@ -32,6 +32,7 @@ export const INITIAL_MEMBERS: Member[] = [
     meetingSlots: [
       { start: '09:00', end: '12:00' }
     ],
+    weekendSlots: [],
     role: 'admin',
     avatarSeed: 'sofia',
     avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
@@ -77,6 +78,9 @@ export const INITIAL_MEMBERS: Member[] = [
       { start: '10:00', end: '12:00' },
       { start: '17:00', end: '22:00' }
     ],
+    weekendSlots: [
+      { start: '10:00', end: '12:00' }
+    ],
     role: 'member',
     avatarSeed: 'pamela',
     avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
@@ -114,6 +118,7 @@ export const INITIAL_MEMBERS: Member[] = [
     meetingSlots: [
       { start: '10:00', end: '12:00' }
     ],
+    weekendSlots: [],
     role: 'member',
     avatarSeed: 'karla',
     avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
@@ -150,6 +155,9 @@ export const INITIAL_MEMBERS: Member[] = [
     meetingEnd: '14:00',
     meetingSlots: [
       { start: '10:00', end: '14:00' }
+    ],
+    weekendSlots: [
+      { start: '15:00', end: '17:00' }
     ],
     role: 'member',
     avatarSeed: 'denisse',
@@ -188,6 +196,7 @@ export const INITIAL_MEMBERS: Member[] = [
     meetingSlots: [
       { start: '15:00', end: '19:00' }
     ],
+    weekendSlots: [],
     role: 'member',
     avatarSeed: 'carlos',
     avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',

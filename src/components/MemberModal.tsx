@@ -14,7 +14,9 @@ import {
   Upload, 
   Image as ImageIcon,
   Copy,
-  Check
+  Check,
+  Calendar,
+  Sun
 } from 'lucide-react';
 import { Member, MemberType, MeetingSlot } from '../types';
 import { COMMON_TIMEZONES, COUNTRY_FLAG_MAP } from '../data/mockMembers';
@@ -63,6 +65,8 @@ export const MemberModal: React.FC<MemberModalProps> = ({
   const [meetingSlots, setMeetingSlots] = useState<MeetingSlot[]>([
     { start: '09:00', end: '12:00' }
   ]);
+  const [weekendSlots, setWeekendSlots] = useState<MeetingSlot[]>([]);
+  const [activeSlotDayType, setActiveSlotDayType] = useState<'weekdays' | 'weekends'>('weekdays');
   const [error, setError] = useState<string | null>(null);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
@@ -103,6 +107,8 @@ export const MemberModal: React.FC<MemberModalProps> = ({
       } else {
         setMeetingSlots([{ start: '09:00', end: '12:00' }]);
       }
+
+      setWeekendSlots(memberToEdit.weekendSlots || []);
     } else {
       setFirstName('');
       setLastName('');
@@ -116,7 +122,9 @@ export const MemberModal: React.FC<MemberModalProps> = ({
       setWorkEnd('17:00');
       setAvatarUrl('');
       setMeetingSlots([{ start: '09:00', end: '12:00' }]);
+      setWeekendSlots([]);
     }
+    setActiveSlotDayType('weekdays');
     setError(null);
   }, [memberToEdit, isOpen]);
 
@@ -162,6 +170,7 @@ export const MemberModal: React.FC<MemberModalProps> = ({
     reader.readAsDataURL(file);
   };
 
+  // Weekdays slots handlers
   const handleUpdateSlot = (index: number, field: 'start' | 'end', val: string) => {
     setMeetingSlots((prev) =>
       prev.map((s, i) => (i === index ? { ...s, [field]: val } : s))
@@ -170,7 +179,7 @@ export const MemberModal: React.FC<MemberModalProps> = ({
 
   const handleRemoveSlot = (index: number) => {
     if (meetingSlots.length <= 1) {
-      setError('Debes mantener al menos una franja o rango disponible para reuniones.');
+      setError('Debes mantener al menos una franja o rango disponible para reuniones de Lunes a Viernes.');
       return;
     }
     setMeetingSlots((prev) => prev.filter((_, i) => i !== index));
@@ -192,6 +201,39 @@ export const MemberModal: React.FC<MemberModalProps> = ({
     const nextH = (hour24 + 1) % 24;
     const endStr = `${String(nextH).padStart(2, '0')}:00`;
     handleAddQuickPreset(startStr, endStr);
+  };
+
+  // Weekend slots handlers
+  const handleUpdateWeekendSlot = (index: number, field: 'start' | 'end', val: string) => {
+    setWeekendSlots((prev) =>
+      prev.map((s, i) => (i === index ? { ...s, [field]: val } : s))
+    );
+  };
+
+  const handleRemoveWeekendSlot = (index: number) => {
+    setWeekendSlots((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddWeekendSlot = (start: string = '10:00', end: string = '12:00') => {
+    setWeekendSlots((prev) => [...prev, { start, end }]);
+  };
+
+  const handleAddWeekendQuickPreset = (start: string, end: string) => {
+    const exists = weekendSlots.some((s) => s.start === start && s.end === end);
+    if (!exists) {
+      setWeekendSlots((prev) => [...prev, { start, end }]);
+    }
+  };
+
+  const handleAddWeekendSingleHour = (hour24: number) => {
+    const startStr = `${String(hour24).padStart(2, '0')}:00`;
+    const nextH = (hour24 + 1) % 24;
+    const endStr = `${String(nextH).padStart(2, '0')}:00`;
+    handleAddWeekendQuickPreset(startStr, endStr);
+  };
+
+  const handleClearWeekendSlots = () => {
+    setWeekendSlots([]);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -220,14 +262,22 @@ export const MemberModal: React.FC<MemberModalProps> = ({
     }
 
     if (meetingSlots.length === 0) {
-      setError('Debes configurar al menos una hora o franja disponible para reunión.');
+      setError('Debes configurar al menos una hora o franja disponible para reunión de Lunes a Viernes.');
       return;
     }
 
     for (let i = 0; i < meetingSlots.length; i++) {
       const s = meetingSlots[i];
       if (!isValid24HourTime(s.start) || !isValid24HourTime(s.end)) {
-        setError(`El slot ${i + 1} (${s.start} - ${s.end}) debe tener formato de 24 horas HH:mm (ej. 08:00, 17:00).`);
+        setError(`El slot de Lunes a Viernes ${i + 1} (${s.start} - ${s.end}) debe tener formato de 24 horas HH:mm (ej. 08:00, 17:00).`);
+        return;
+      }
+    }
+
+    for (let i = 0; i < weekendSlots.length; i++) {
+      const s = weekendSlots[i];
+      if (!isValid24HourTime(s.start) || !isValid24HourTime(s.end)) {
+        setError(`El slot de Fin de Semana ${i + 1} (${s.start} - ${s.end}) debe tener formato de 24 horas HH:mm (ej. 10:00, 12:00).`);
         return;
       }
     }
@@ -253,6 +303,7 @@ export const MemberModal: React.FC<MemberModalProps> = ({
       meetingStart: meetingSlots[0]?.start || '09:00',
       meetingEnd: meetingSlots[0]?.end || '12:00',
       meetingSlots,
+      weekendSlots,
       role: isAdmin ? role : (memberToEdit?.role || 'member'),
       avatarUrl: avatarUrl.trim() || undefined,
       busySlots: memberToEdit?.busySlots || [],
@@ -619,172 +670,476 @@ export const MemberModal: React.FC<MemberModalProps> = ({
 
           {/* Meeting Hours: Múltiples Slots y Horas Libres Destinadas para Reunión */}
           <div className="bg-[#acc917]/15 p-3.5 rounded-xl border border-[#acc917]/40 space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
                 <Clock className="w-4 h-4 text-[#141f5b]" />
                 <span className="font-bold text-[#141f5b] text-xs">
                   Horas Libres Destinadas para Reunión (Slots Disponibles)
                 </span>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white text-[#141f5b] font-bold border border-[#acc917] shadow-2xs">
-                {meetingSlots.length} {meetingSlots.length === 1 ? 'Franja' : 'Franjas'}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-white text-[#141f5b] font-bold border border-[#acc917] shadow-2xs">
+                  Lun-Vie: {meetingSlots.length} {meetingSlots.length === 1 ? 'franja' : 'franjas'}
+                </span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold shadow-2xs border ${
+                  weekendSlots.length > 0 
+                    ? 'bg-amber-100 text-amber-900 border-amber-300' 
+                    : 'bg-white text-gray-500 border-gray-200'
+                }`}>
+                  Sáb-Dom: {weekendSlots.length > 0 ? `${weekendSlots.length} franjas` : '0h libre'}
+                </span>
+              </div>
             </div>
 
-            <p className="text-[11px] text-gray-600 leading-snug">
-              Puedes configurar tus franjas por rango (ej. 5:00 pm a 10:00 pm) o agregar horas sueltas independientes (ej. 8:00 am).
-            </p>
-
-            {/* List of configured slots */}
-            <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-              {meetingSlots.map((slot, index) => (
-                <div 
-                  key={index}
-                  className="bg-white p-2.5 rounded-lg border border-gray-200/90 shadow-2xs flex flex-col sm:flex-row sm:items-center gap-2 justify-between"
-                >
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="w-5 h-5 rounded-full bg-[#141f5b] text-white flex items-center justify-center text-[10px] font-bold shrink-0">
-                      {index + 1}
-                    </span>
-                    <div className="font-bold text-xs text-[#141f5b] flex items-center gap-1 truncate">
-                      <span>{formatTime24to12(slot.start) || slot.start}</span>
-                      <span className="text-gray-400 font-normal">→</span>
-                      <span>{formatTime24to12(slot.end) || slot.end}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="text"
-                        value={slot.start}
-                        onChange={(e) => handleUpdateSlot(index, 'start', e.target.value)}
-                        maxLength={5}
-                        placeholder="08:00"
-                        className="w-16 bg-gray-50 border border-gray-200 rounded px-1.5 py-1 text-gray-900 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-[#141f5b]"
-                        title="Hora inicio (HH:mm)"
-                      />
-                      <span className="text-gray-400 text-xs font-mono">-</span>
-                      <input
-                        type="text"
-                        value={slot.end}
-                        onChange={(e) => handleUpdateSlot(index, 'end', e.target.value)}
-                        maxLength={5}
-                        placeholder="09:00"
-                        className="w-16 bg-gray-50 border border-gray-200 rounded px-1.5 py-1 text-gray-900 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-[#141f5b]"
-                        title="Hora fin (HH:mm)"
-                      />
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveSlot(index)}
-                      className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
-                      title="Eliminar esta franja"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Button to add another custom range */}
-            <div className="flex items-center justify-between pt-1 border-t border-[#acc917]/30">
+            {/* Sub-selector tabs between Weekdays (Lun-Vie) and Weekends (Sáb-Dom) */}
+            <div className="grid grid-cols-2 gap-1.5 p-1 bg-white/70 rounded-lg border border-[#acc917]/30">
               <button
                 type="button"
-                onClick={() => handleAddSlot('17:00', '19:00')}
-                className="flex items-center gap-1 text-xs font-bold text-[#141f5b] hover:text-[#1a2875] bg-white px-2.5 py-1.5 rounded-lg border border-[#acc917] hover:bg-lime-50 transition-colors shadow-2xs cursor-pointer"
+                onClick={() => setActiveSlotDayType('weekdays')}
+                className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                  activeSlotDayType === 'weekdays'
+                    ? 'bg-[#141f5b] text-white shadow-xs'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-white'
+                }`}
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ Agregar otra Franja / Rango</span>
+                <Calendar className="w-3.5 h-3.5" />
+                <span>De Lunes a Viernes</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                  activeSlotDayType === 'weekdays' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {meetingSlots.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveSlotDayType('weekends')}
+                className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                  activeSlotDayType === 'weekends'
+                    ? 'bg-[#141f5b] text-white shadow-xs'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-white'
+                }`}
+              >
+                <Sun className="w-3.5 h-3.5 text-amber-400" />
+                <span>Sábado y Domingo</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                  activeSlotDayType === 'weekends' 
+                    ? 'bg-white/20 text-white' 
+                    : weekendSlots.length > 0 ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-400'
+                }`}>
+                  {weekendSlots.length > 0 ? weekendSlots.length : '0'}
+                </span>
               </button>
             </div>
 
-            {/* Quick hour presets & single-hour quick buttons */}
-            <div className="pt-2 border-t border-[#acc917]/20 space-y-1.5">
-              <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wider block">
-                Atajos rápidos para agregar horas o rangos comunes:
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => handleAddQuickPreset('08:00', '09:00')}
-                  className="text-[11px] font-semibold bg-white hover:bg-gray-50 text-[#141f5b] px-2 py-1 rounded border border-gray-300 transition-colors cursor-pointer shadow-2xs"
-                  title="Agregar 8:00 am (1 hora)"
-                >
-                  + 8:00 am (1h)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAddQuickPreset('07:00', '08:00')}
-                  className="text-[11px] font-semibold bg-white hover:bg-gray-50 text-[#141f5b] px-2 py-1 rounded border border-gray-300 transition-colors cursor-pointer shadow-2xs"
-                  title="Agregar 7:00 am a 8:00 am"
-                >
-                  + 7:00 am - 8:00 am
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAddQuickPreset('17:00', '19:00')}
-                  className="text-[11px] font-semibold bg-white hover:bg-gray-50 text-[#141f5b] px-2 py-1 rounded border border-gray-300 transition-colors cursor-pointer shadow-2xs"
-                  title="Agregar 5:00 pm a 7:00 pm"
-                >
-                  + 5:00 pm - 7:00 pm
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAddQuickPreset('17:00', '22:00')}
-                  className="text-[11px] font-semibold bg-white hover:bg-gray-50 text-[#141f5b] px-2 py-1 rounded border border-gray-300 transition-colors cursor-pointer shadow-2xs"
-                  title="Agregar 5:00 pm a 10:00 pm"
-                >
-                  + 5:00 pm - 10:00 pm
-                </button>
-              </div>
+            {/* TAB 1: Lunes a Viernes */}
+            {activeSlotDayType === 'weekdays' && (
+              <div className="space-y-2.5 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-[#141f5b]">
+                    📅 Disponibilidad habitual de Lunes a Viernes:
+                  </span>
+                  <span className="text-[10px] text-gray-500">
+                    Aplica para todos los días laborales
+                  </span>
+                </div>
 
-              {/* Single hours quick selector (7am to 10pm) */}
-              <div className="pt-1.5 space-y-1">
-                <span className="text-[10px] text-gray-500 block">
-                  O toca una hora suelta para activarla/desactivarla (1 hora):
-                </span>
-                <div className="flex flex-wrap gap-1">
-                  {[7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22].map((h) => {
-                    const label = h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`;
-                    const startStr = `${String(h).padStart(2, '0')}:00`;
-                    const nextH = (h + 1) % 24;
-                    const endStr = `${String(nextH).padStart(2, '0')}:00`;
-                    const isSelected = meetingSlots.some(
-                      (s) => s.start === startStr && s.end === endStr
-                    );
+                <p className="text-[11px] text-gray-600 leading-snug">
+                  Configura tus franjas por rango (ej. 5:00 pm a 11:00 pm) o agrega horas sueltas independientes (ej. 8:00 am).
+                </p>
 
-                    return (
-                      <button
-                        key={h}
-                        type="button"
-                        onClick={() => {
-                          if (isSelected) {
-                            if (meetingSlots.length > 1) {
-                              setMeetingSlots((prev) =>
-                                prev.filter((s) => !(s.start === startStr && s.end === endStr))
-                              );
-                            }
-                          } else {
-                            handleAddSingleHour(h);
-                          }
-                        }}
-                        className={`text-[10px] font-mono px-1.5 py-0.5 rounded transition-colors cursor-pointer font-bold ${
-                          isSelected
-                            ? 'bg-[#141f5b] text-white shadow-2xs'
-                            : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-                        }`}
-                        title={isSelected ? `Quitar ${label}` : `Agregar ${label} (1 hora)`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
+                {/* List of configured weekday slots */}
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {meetingSlots.map((slot, index) => (
+                    <div 
+                      key={index}
+                      className="bg-white p-2 rounded-lg border border-gray-200/90 shadow-2xs flex flex-col sm:flex-row sm:items-center gap-2 justify-between"
+                    >
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="w-5 h-5 rounded-full bg-[#141f5b] text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                          {index + 1}
+                        </span>
+                        <div className="font-bold text-xs text-[#141f5b] flex items-center gap-1 truncate">
+                          <span>{formatTime24to12(slot.start) || slot.start}</span>
+                          <span className="text-gray-400 font-normal">→</span>
+                          <span>{formatTime24to12(slot.end) || slot.end}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            value={slot.start}
+                            onChange={(e) => handleUpdateSlot(index, 'start', e.target.value)}
+                            maxLength={5}
+                            placeholder="08:00"
+                            className="w-16 bg-gray-50 border border-gray-200 rounded px-1.5 py-1 text-gray-900 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-[#141f5b]"
+                            title="Hora inicio (HH:mm)"
+                          />
+                          <span className="text-gray-400 text-xs font-mono">-</span>
+                          <input
+                            type="text"
+                            value={slot.end}
+                            onChange={(e) => handleUpdateSlot(index, 'end', e.target.value)}
+                            maxLength={5}
+                            placeholder="09:00"
+                            className="w-16 bg-gray-50 border border-gray-200 rounded px-1.5 py-1 text-gray-900 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-[#141f5b]"
+                            title="Hora fin (HH:mm)"
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSlot(index)}
+                          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                          title="Eliminar esta franja"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Button to add another custom range */}
+                <div className="flex items-center justify-between pt-1 border-t border-[#acc917]/30">
+                  <button
+                    type="button"
+                    onClick={() => handleAddSlot('17:00', '19:00')}
+                    className="flex items-center gap-1 text-xs font-bold text-[#141f5b] hover:text-[#1a2875] bg-white px-2.5 py-1.5 rounded-lg border border-[#acc917] hover:bg-lime-50 transition-colors shadow-2xs cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Agregar franja Lun-Vie</span>
+                  </button>
+                </div>
+
+                {/* Quick hour presets & single-hour quick buttons for weekdays */}
+                <div className="pt-2 border-t border-[#acc917]/20 space-y-1.5">
+                  <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wider block">
+                    Atajos rápidos de Lunes a Viernes:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleAddQuickPreset('08:00', '09:00')}
+                      className="text-[11px] font-semibold bg-white hover:bg-gray-50 text-[#141f5b] px-2 py-1 rounded border border-gray-300 transition-colors cursor-pointer shadow-2xs"
+                      title="Agregar 8:00 am (1 hora)"
+                    >
+                      + 8:00 am (1h)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAddQuickPreset('07:00', '08:00')}
+                      className="text-[11px] font-semibold bg-white hover:bg-gray-50 text-[#141f5b] px-2 py-1 rounded border border-gray-300 transition-colors cursor-pointer shadow-2xs"
+                      title="Agregar 7:00 am a 8:00 am"
+                    >
+                      + 7:00 am - 8:00 am
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAddQuickPreset('17:00', '19:00')}
+                      className="text-[11px] font-semibold bg-white hover:bg-gray-50 text-[#141f5b] px-2 py-1 rounded border border-gray-300 transition-colors cursor-pointer shadow-2xs"
+                      title="Agregar 5:00 pm a 7:00 pm"
+                    >
+                      + 5:00 pm - 7:00 pm
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAddQuickPreset('17:00', '23:00')}
+                      className="text-[11px] font-semibold bg-white hover:bg-gray-50 text-[#141f5b] px-2 py-1 rounded border border-gray-300 transition-colors cursor-pointer shadow-2xs"
+                      title="Agregar 5:00 pm a 11:00 pm"
+                    >
+                      + 5:00 pm - 11:00 pm
+                    </button>
+                  </div>
+
+                  {/* Single hours quick selector */}
+                  <div className="pt-1.5 space-y-1">
+                    <span className="text-[10px] text-gray-500 block">
+                      O activa/desactiva horas sueltas (1 hora cada una):
+                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {[7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22].map((h) => {
+                        const label = h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`;
+                        const startStr = `${String(h).padStart(2, '0')}:00`;
+                        const nextH = (h + 1) % 24;
+                        const endStr = `${String(nextH).padStart(2, '0')}:00`;
+                        const isSelected = meetingSlots.some(
+                          (s) => s.start === startStr && s.end === endStr
+                        );
+
+                        return (
+                          <button
+                            key={h}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                if (meetingSlots.length > 1) {
+                                  setMeetingSlots((prev) =>
+                                    prev.filter((s) => !(s.start === startStr && s.end === endStr))
+                                  );
+                                }
+                              } else {
+                                handleAddSingleHour(h);
+                              }
+                            }}
+                            className={`text-[10px] font-mono px-1.5 py-0.5 rounded transition-colors cursor-pointer font-bold ${
+                              isSelected
+                                ? 'bg-[#141f5b] text-white shadow-2xs'
+                                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                            }`}
+                            title={isSelected ? `Quitar ${label}` : `Agregar ${label} (1 hora)`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
+
+            {/* TAB 2: Sábado y Domingo */}
+            {activeSlotDayType === 'weekends' && (
+              <div className="space-y-2.5 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-amber-900 flex items-center gap-1">
+                    <Sun className="w-3.5 h-3.5 text-amber-500" />
+                    ☀️ Disponibilidad para Sábado y Domingo:
+                  </span>
+                  <span className="text-[10px] text-gray-500">
+                    Opcional (1 hora, rango o ninguna)
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-gray-600 leading-snug">
+                  Aquí puedes hacer espacio el sábado o domingo especificando <strong>1 sola hora</strong>, <strong>n cantidad de horas</strong> o dejarlo en 0 si no laboras fines de semana.
+                </p>
+
+                {weekendSlots.length === 0 ? (
+                  <div className="bg-white/80 p-3 rounded-xl border border-amber-200 text-center space-y-2">
+                    <div className="text-amber-900 font-semibold text-xs flex items-center justify-center gap-1.5">
+                      <Sun className="w-4 h-4 text-amber-500" />
+                      <span>Sin horas asignadas para Sábado y Domingo</span>
+                    </div>
+                    <p className="text-[11px] text-gray-500 max-w-sm mx-auto">
+                      Actualmente estás libre los fines de semana. Si deseas destinar 1 hora o un rango para llamadas, pulsa un atajo:
+                    </p>
+                    <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => handleAddWeekendSingleHour(10)}
+                        className="px-2.5 py-1 rounded bg-[#141f5b] text-white text-xs font-semibold shadow-2xs hover:bg-[#1a2875] cursor-pointer"
+                        title="Agregar 10:00 am a 11:00 am"
+                      >
+                        + 1 sola hora: 10:00 am (1h)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAddWeekendSingleHour(11)}
+                        className="px-2.5 py-1 rounded bg-white text-[#141f5b] border border-gray-300 text-xs font-semibold hover:bg-gray-50 shadow-2xs cursor-pointer"
+                        title="Agregar 11:00 am a 12:00 pm"
+                      >
+                        + 11:00 am (1h)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAddWeekendQuickPreset('10:00', '12:00')}
+                        className="px-2.5 py-1 rounded bg-white text-[#141f5b] border border-gray-300 text-xs font-semibold hover:bg-gray-50 shadow-2xs cursor-pointer"
+                        title="Agregar 10:00 am a 12:00 pm"
+                      >
+                        + 10:00 am - 12:00 pm (2h)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAddWeekendSlot('15:00', '17:00')}
+                        className="px-2.5 py-1 rounded bg-white text-[#141f5b] border border-gray-300 text-xs font-semibold hover:bg-gray-50 shadow-2xs cursor-pointer"
+                        title="Agregar 3:00 pm a 5:00 pm"
+                      >
+                        + 3:00 pm - 5:00 pm
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAddWeekendSlot('09:00', '11:00')}
+                        className="px-2.5 py-1 rounded bg-lime-50 text-lime-900 border border-lime-300 text-xs font-semibold hover:bg-lime-100 shadow-2xs cursor-pointer"
+                      >
+                        + Personalizar franja
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* List of configured weekend slots */}
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {weekendSlots.map((slot, index) => (
+                        <div 
+                          key={index}
+                          className="bg-white p-2 rounded-lg border border-amber-200 shadow-2xs flex flex-col sm:flex-row sm:items-center gap-2 justify-between"
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="w-5 h-5 rounded-full bg-amber-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                              {index + 1}
+                            </span>
+                            <div className="font-bold text-xs text-amber-950 flex items-center gap-1 truncate">
+                              <span>{formatTime24to12(slot.start) || slot.start}</span>
+                              <span className="text-gray-400 font-normal">→</span>
+                              <span>{formatTime24to12(slot.end) || slot.end}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="text"
+                                value={slot.start}
+                                onChange={(e) => handleUpdateWeekendSlot(index, 'start', e.target.value)}
+                                maxLength={5}
+                                placeholder="10:00"
+                                className="w-16 bg-amber-50/50 border border-amber-200 rounded px-1.5 py-1 text-gray-900 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                title="Hora inicio (HH:mm)"
+                              />
+                              <span className="text-gray-400 text-xs font-mono">-</span>
+                              <input
+                                type="text"
+                                value={slot.end}
+                                onChange={(e) => handleUpdateWeekendSlot(index, 'end', e.target.value)}
+                                maxLength={5}
+                                placeholder="11:00"
+                                className="w-16 bg-amber-50/50 border border-amber-200 rounded px-1.5 py-1 text-gray-900 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                title="Hora fin (HH:mm)"
+                              />
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveWeekendSlot(index)}
+                              className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                              title="Eliminar esta franja de fin de semana"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Actions for weekend slots */}
+                    <div className="flex items-center justify-between pt-1 border-t border-[#acc917]/30">
+                      <button
+                        type="button"
+                        onClick={() => handleAddWeekendSlot('10:00', '12:00')}
+                        className="flex items-center gap-1 text-xs font-bold text-[#141f5b] hover:text-[#1a2875] bg-white px-2.5 py-1.5 rounded-lg border border-[#acc917] hover:bg-lime-50 transition-colors shadow-2xs cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>+ Agregar franja Sáb-Dom</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleClearWeekendSlots}
+                        className="text-xs text-gray-500 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded transition-colors cursor-pointer"
+                        title="Quitar todas las horas y dejar fin de semana libre"
+                      >
+                        Dejar libre (0 horas)
+                      </button>
+                    </div>
+
+                    {/* Quick presets for weekend */}
+                    <div className="pt-2 border-t border-[#acc917]/20 space-y-1.5">
+                      <span className="text-[10px] font-bold text-amber-900 uppercase tracking-wider block">
+                        Atajos para Sábado y Domingo:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleAddWeekendSingleHour(9)}
+                          className="text-[11px] font-semibold bg-white hover:bg-amber-50 text-amber-900 px-2 py-1 rounded border border-amber-200 transition-colors cursor-pointer shadow-2xs"
+                          title="Agregar 9:00 am (1 sola hora)"
+                        >
+                          + 9:00 am (1h)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAddWeekendSingleHour(10)}
+                          className="text-[11px] font-semibold bg-white hover:bg-amber-50 text-amber-900 px-2 py-1 rounded border border-amber-200 transition-colors cursor-pointer shadow-2xs"
+                          title="Agregar 10:00 am (1 sola hora)"
+                        >
+                          + 10:00 am (1h)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAddWeekendQuickPreset('10:00', '12:00')}
+                          className="text-[11px] font-semibold bg-white hover:bg-amber-50 text-amber-900 px-2 py-1 rounded border border-amber-200 transition-colors cursor-pointer shadow-2xs"
+                          title="Agregar 10:00 am a 12:00 pm (2 horas)"
+                        >
+                          + 10:00 am - 12:00 pm (2h)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAddWeekendQuickPreset('15:00', '17:00')}
+                          className="text-[11px] font-semibold bg-white hover:bg-amber-50 text-amber-900 px-2 py-1 rounded border border-amber-200 transition-colors cursor-pointer shadow-2xs"
+                          title="Agregar 3:00 pm a 5:00 pm"
+                        >
+                          + 3:00 pm - 5:00 pm
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAddWeekendQuickPreset('17:00', '19:00')}
+                          className="text-[11px] font-semibold bg-white hover:bg-amber-50 text-amber-900 px-2 py-1 rounded border border-amber-200 transition-colors cursor-pointer shadow-2xs"
+                          title="Agregar 5:00 pm a 7:00 pm"
+                        >
+                          + 5:00 pm - 7:00 pm
+                        </button>
+                      </div>
+
+                      {/* Single hours quick selector for weekend */}
+                      <div className="pt-1.5 space-y-1">
+                        <span className="text-[10px] text-gray-500 block">
+                          Toca una hora para activarla/desactivarla el fin de semana (1 hora):
+                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          {[8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21].map((h) => {
+                            const label = h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`;
+                            const startStr = `${String(h).padStart(2, '0')}:00`;
+                            const nextH = (h + 1) % 24;
+                            const endStr = `${String(nextH).padStart(2, '0')}:00`;
+                            const isSelected = weekendSlots.some(
+                              (s) => s.start === startStr && s.end === endStr
+                            );
+
+                            return (
+                              <button
+                                key={h}
+                                type="button"
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setWeekendSlots((prev) =>
+                                      prev.filter((s) => !(s.start === startStr && s.end === endStr))
+                                    );
+                                  } else {
+                                    handleAddWeekendSingleHour(h);
+                                  }
+                                }}
+                                className={`text-[10px] font-mono px-1.5 py-0.5 rounded transition-colors cursor-pointer font-bold ${
+                                  isSelected
+                                    ? 'bg-amber-600 text-white shadow-2xs'
+                                    : 'bg-white text-gray-700 hover:bg-amber-50 border border-gray-200'
+                                }`}
+                                title={isSelected ? `Quitar ${label} del fin de semana` : `Agregar ${label} (1 hora)`}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

@@ -274,41 +274,45 @@ export const Header: React.FC<HeaderProps> = ({
                     </button>
                   </div>
 
-                  {/* Switch user / quick test */}
-                  <div className="px-3 py-1.5 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
-                    Cambiar de Colaborador
-                  </div>
-                  <div className="max-h-48 overflow-y-auto px-1">
-                    {allMembers.map((m) => (
-                      <button
-                        key={m.id}
-                        onClick={() => {
-                          onSwitchUser(m);
-                          setShowUserDropdown(false);
-                        }}
-                        className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between rounded-lg hover:bg-gray-50 transition-colors ${
-                          currentUser.id === m.id ? 'bg-gray-50 text-[#141f5b] font-bold' : 'text-gray-700'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 truncate">
-                          {m.avatarUrl ? (
-                            <img 
-                              src={m.avatarUrl} 
-                              alt="" 
-                              referrerPolicy="no-referrer" 
-                              className="w-5 h-5 rounded-full object-cover" 
-                            />
-                          ) : (
-                            <div className="w-5 h-5 rounded-full bg-gray-200 text-gray-700 flex items-center justify-center text-[10px] font-bold">
-                              {m.firstName[0]}
+                  {/* Switch user / quick test - Solo para Admin */}
+                  {isAdmin && (
+                    <>
+                      <div className="px-3 py-1.5 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                        Cambiar de Perfil (Admin)
+                      </div>
+                      <div className="max-h-48 overflow-y-auto px-1">
+                        {allMembers.map((m) => (
+                          <button
+                            key={m.id}
+                            onClick={() => {
+                              onSwitchUser(m);
+                              setShowUserDropdown(false);
+                            }}
+                            className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between rounded-lg hover:bg-gray-50 transition-colors ${
+                              currentUser.id === m.id ? 'bg-gray-50 text-[#141f5b] font-bold' : 'text-gray-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 truncate">
+                              {m.avatarUrl ? (
+                                <img 
+                                  src={m.avatarUrl} 
+                                  alt="" 
+                                  referrerPolicy="no-referrer" 
+                                  className="w-5 h-5 rounded-full object-cover" 
+                                />
+                              ) : (
+                                <div className="w-5 h-5 rounded-full bg-gray-200 text-gray-700 flex items-center justify-center text-[10px] font-bold">
+                                  {m.firstName[0]}
+                                </div>
+                              )}
+                              <span className="truncate">{m.firstName} {m.lastName}</span>
                             </div>
-                          )}
-                          <span className="truncate">{m.firstName} {m.lastName}</span>
-                        </div>
-                        {currentUser.id === m.id && <Check className="w-3.5 h-3.5 text-[#141f5b]" />}
-                      </button>
-                    ))}
-                  </div>
+                            {currentUser.id === m.id && <Check className="w-3.5 h-3.5 text-[#141f5b]" />}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
 
                   {/* Logout */}
                   <div className="pt-1.5 mt-1 border-t border-gray-100 px-2">
@@ -336,15 +340,17 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {/* DevSec Audit button */}
-          <button
-            onClick={onOpenDevSecModal}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-colors shadow-2xs cursor-pointer bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200"
-            title="Consola de Seguridad DevSec & Pentest"
-          >
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            <span className="hidden sm:inline">DevSec</span>
-          </button>
+          {/* DevSec Audit button - Solo visible para Administradores */}
+          {isAdmin && (
+            <button
+              onClick={onOpenDevSecModal}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-colors shadow-2xs cursor-pointer bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200"
+              title="Consola de Seguridad DevSec & Pentest (Solo Administrador)"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="hidden sm:inline">DevSec</span>
+            </button>
+          )}
         </div>
       </div>
 

@@ -28,7 +28,8 @@ export interface Member {
   workEnd: string;     // Formato 24h "HH:mm" (ej. "17:00")
   meetingStart?: string; // Formato 24h "HH:mm" - Horas libres para reunirse (ej. "09:00")
   meetingEnd?: string;   // Formato 24h "HH:mm" - Horas libres para reunirse (ej. "12:00")
-  meetingSlots?: MeetingSlot[]; // Múltiples franjas/slots libres para reuniones
+  meetingSlots?: MeetingSlot[]; // Franjas de Lunes a Viernes (Días Laborales)
+  weekendSlots?: MeetingSlot[]; // Franjas de Sábado y Domingo (Fines de Semana)
   busySlots: TimeSlot[];
   availableSlots: TimeSlot[];
   role?: 'admin' | 'member' | 'guest';

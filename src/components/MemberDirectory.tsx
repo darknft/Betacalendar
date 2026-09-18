@@ -12,11 +12,12 @@ import {
   AlertCircle,
   Trash2,
   Shield,
-  Key
+  Key,
+  Sun
 } from 'lucide-react';
 import { Member } from '../types';
 import { COUNTRY_FLAG_MAP } from '../data/mockMembers';
-import { formatInTimezone, localTimeToUtcIso, getMemberMeetingSlots, formatTime24to12 } from '../utils/timeEngine';
+import { formatInTimezone, localTimeToUtcIso, getMemberMeetingSlots, getMemberWeekendSlots, formatTime24to12 } from '../utils/timeEngine';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import { InviteModal } from './InviteModal';
 
@@ -303,31 +304,67 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
                 </div>
 
                 {/* 3. Meeting Hours Destined */}
-                <div className="bg-[#acc917]/15 rounded-lg p-2.5 border border-[#acc917]/40 space-y-1.5">
+                <div className="bg-[#acc917]/15 rounded-lg p-2.5 border border-[#acc917]/40 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#141f5b] flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-[#acc917]" />
+                      <Clock className="w-3.5 h-3.5 text-[#141f5b]" />
                       Horas Libres para Reunión
                     </span>
-                    <span className="text-[9px] font-bold text-[#141f5b] bg-white px-1.5 py-0.5 rounded border border-[#acc917]/50">
-                      {getMemberMeetingSlots(member).length} {getMemberMeetingSlots(member).length === 1 ? 'franja' : 'franjas'}
-                    </span>
                   </div>
 
-                  <div className="flex flex-wrap gap-1">
-                    {getMemberMeetingSlots(member).map((s, sIdx) => (
-                      <span
-                        key={sIdx}
-                        className="text-[10px] font-mono px-2 py-0.5 rounded bg-white text-[#141f5b] font-bold border border-[#acc917] shadow-2xs"
-                      >
-                        {formatTime24to12(s.start)} - {formatTime24to12(s.end)}
+                  {/* Lunes a Viernes */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="font-bold text-[#141f5b] flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-[#141f5b]" />
+                        Lun - Vie:
                       </span>
-                    ))}
+                      <span className="text-gray-500 font-medium">
+                        {getMemberMeetingSlots(member).length} {getMemberMeetingSlots(member).length === 1 ? 'franja' : 'franjas'}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {getMemberMeetingSlots(member).map((s, sIdx) => (
+                        <span
+                          key={sIdx}
+                          className="text-[10px] font-mono px-2 py-0.5 rounded bg-white text-[#141f5b] font-bold border border-[#acc917] shadow-2xs"
+                        >
+                          {formatTime24to12(s.start)} - {formatTime24to12(s.end)}
+                        </span>
+                      ))}
+                    </div>
                   </div>
 
-                  <p className="text-[10px] text-gray-600">
-                    Ventana preferida para coordinar llamadas y sesiones síncronas.
-                  </p>
+                  {/* Sábado y Domingo */}
+                  <div className="space-y-1 pt-1.5 border-t border-[#acc917]/30">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="font-bold text-amber-900 flex items-center gap-1">
+                        <Sun className="w-3 h-3 text-amber-600" />
+                        Sáb - Dom:
+                      </span>
+                      <span className="text-gray-500 font-medium">
+                        {getMemberWeekendSlots(member).length > 0 
+                          ? `${getMemberWeekendSlots(member).length} ${getMemberWeekendSlots(member).length === 1 ? 'franja' : 'franjas'}` 
+                          : 'Libre'}
+                      </span>
+                    </div>
+                    {getMemberWeekendSlots(member).length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {getMemberWeekendSlots(member).map((s, sIdx) => (
+                          <span
+                            key={sIdx}
+                            className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-50 text-amber-900 font-bold border border-amber-300 shadow-2xs"
+                          >
+                            {formatTime24to12(s.start)} - {formatTime24to12(s.end)}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-gray-500 italic block">
+                        Sin horas de reunión en fin de semana
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Credentials display for Admin or Self */}

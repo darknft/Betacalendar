@@ -97,12 +97,9 @@ export const DevSecModal: React.FC<DevSecModalProps> = ({
               </h3>
               <p className="text-xs text-gray-600">
                 Tu sesión actual ({currentUser.firstName} {currentUser.lastName}) tiene el rol de{' '}
-                <span className="font-mono text-red-600 font-bold uppercase">{currentUser.role || 'guest'}</span>. 
-                Siguiendo el principio de menor privilegio (PoLP) y DevSec, solo el rol <span className="text-[#141f5b] font-bold">admin</span> puede ejecutar la suite de pentesting y auditorías de seguridad.
+                <span className="font-mono text-red-600 font-bold uppercase">{currentUser.role || 'colaborador'}</span>. 
+                Siguiendo el principio de menor privilegio (PoLP), solo los usuarios administradores autorizados pueden acceder a la consola técnica y auditorías de seguridad.
               </p>
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-[#141f5b] font-medium">
-                💡 Tip: Cambia de usuario en el selector superior a <span className="font-bold text-gray-900">Sofía Morales (Admin)</span> para interactuar con la consola DevSec.
-              </div>
             </div>
           </div>
         ) : (
