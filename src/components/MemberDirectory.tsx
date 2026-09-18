@@ -11,12 +11,14 @@ import {
   Calendar,
   AlertCircle,
   Trash2,
-  Shield
+  Shield,
+  Key
 } from 'lucide-react';
 import { Member } from '../types';
 import { COUNTRY_FLAG_MAP } from '../data/mockMembers';
 import { formatInTimezone, localTimeToUtcIso, getMemberMeetingSlots, formatTime24to12 } from '../utils/timeEngine';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+import { InviteModal } from './InviteModal';
 
 interface MemberDirectoryProps {
   members: Member[];
@@ -48,6 +50,7 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
   const isAdmin = currentUser.role === 'admin';
   const todayStr = new Date().toISOString().substring(0, 10);
   const [membersPendingDelete, setMembersPendingDelete] = useState<Member[]>([]);
+  const [memberToInvite, setMemberToInvite] = useState<Member | null>(null);
 
   // Calculate selected non-admin members (Admin can NEVER be deleted)
   const selectedNonAdmins = members.filter(
@@ -382,6 +385,16 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
                         Admin protegido
                       </span>
                     )}
+                    {isAdmin && (
+                      <button
+                        onClick={() => setMemberToInvite(member)}
+                        className="flex items-center gap-1.5 text-xs text-blue-700 hover:text-blue-900 font-bold py-1.5 px-2.5 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer border border-blue-200 bg-white shadow-2xs"
+                        title={`Ver credenciales e invitar a ${member.firstName}`}
+                      >
+                        <Key className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Credenciales</span>
+                      </button>
+                    )}
                     <button
                       onClick={() => onEditMember(member)}
                       className="flex items-center gap-1.5 text-xs text-[#141f5b] hover:text-[#1a2875] font-bold py-1.5 px-3 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer border border-blue-200 bg-white shadow-2xs"
@@ -411,6 +424,13 @@ export const MemberDirectory: React.FC<MemberDirectoryProps> = ({
           onDeleteMembers(ids);
         }}
         membersToDelete={membersPendingDelete}
+      />
+
+      {/* Direct Credentials & Invitation Modal */}
+      <InviteModal
+        isOpen={!!memberToInvite}
+        onClose={() => setMemberToInvite(null)}
+        member={memberToInvite}
       />
     </div>
   );
