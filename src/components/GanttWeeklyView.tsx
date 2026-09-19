@@ -45,50 +45,19 @@ export const GanttWeeklyView: React.FC<GanttWeeklyViewProps> = ({
   const activeMembers = members.filter((m) => selectedMemberIds.includes(m.id));
   const weekDays = getWeekDates(referenceDate);
 
-  // Determine hours array dynamically based on members' meeting and work slots
+  // Determine hours array (no military hours!)
   const hoursToDisplay = (() => {
-    if (hoursMode === 'full') {
-      return Array.from({ length: 24 }, (_, i) => i);
+    if (hoursMode === 'work') {
+      // 8:00 am to 7:00 pm / 8:00 pm
+      return Array.from({ length: 13 }, (_, i) => i + 8); // 8 to 20
     }
-
-    let minH = 8;
-    let maxH = 20; // 8:00 pm default
-
-    activeMembers.forEach((member) => {
-      const slots = [
-        ...(member.meetingSlots || []),
-        ...(member.saturdaySlots || []),
-        ...(member.sundaySlots || [])
-      ];
-      if (member.meetingStart && member.meetingEnd) {
-        slots.push({ start: member.meetingStart, end: member.meetingEnd });
-      }
-      if (member.workStart && member.workEnd) {
-        slots.push({ start: member.workStart, end: member.workEnd });
-      }
-
-      slots.forEach((s) => {
-        if (s.start) {
-          const startH = parseInt(s.start.split(':')[0], 10);
-          if (!isNaN(startH) && startH < minH) minH = Math.max(0, startH);
-        }
-        if (s.end) {
-          const parts = s.end.split(':');
-          const endH = parseInt(parts[0], 10);
-          const endM = parseInt(parts[1] || '0', 10);
-          if (!isNaN(endH)) {
-            let targetMaxH = endM > 0 ? endH : (endH > 0 ? endH - 1 : 23);
-            if (targetMaxH > maxH) maxH = Math.min(23, targetMaxH);
-          }
-        }
-      });
-    });
-
-    return Array.from({ length: maxH - minH + 1 }, (_, i) => minH + i);
+    if (hoursMode === 'extended') {
+      // 7:00 am to 10:00 pm
+      return Array.from({ length: 16 }, (_, i) => i + 7); // 7 to 22
+    }
+    // 24 hours
+    return Array.from({ length: 24 }, (_, i) => i);
   })();
-
-  const startHourLabel = formatHourAmPm(hoursToDisplay[0] ?? 8);
-  const endHourLabel = formatHourAmPm(hoursToDisplay[hoursToDisplay.length - 1] ?? 20);
 
   // Navigation handlers
   const handlePrevWeek = () => {
@@ -154,17 +123,12 @@ export const GanttWeeklyView: React.FC<GanttWeeklyViewProps> = ({
           {/* Status color badges */}
           <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-300 px-2.5 py-1 rounded-lg">
             <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block shadow-2xs" />
-            <span className="text-emerald-950 font-bold">Verde: Todos Coinciden</span>
-          </div>
-
-          <div className="flex items-center gap-1.5 bg-yellow-50 border border-yellow-300 px-2.5 py-1 rounded-lg">
-            <span className="w-3 h-3 rounded-full bg-yellow-400 inline-block shadow-2xs" />
-            <span className="text-amber-950 font-semibold">Amarillo: Coincidencia Parcial</span>
+            <span className="text-emerald-950 font-bold">Verde: Coinciden Todas</span>
           </div>
 
           <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-lg">
             <span className="w-3 h-3 rounded-full bg-gray-400 inline-block shadow-2xs" />
-            <span className="text-gray-700 font-medium">Gris: Nadie Coincide</span>
+            <span className="text-gray-700 font-medium">Gris: No coinciden todas</span>
           </div>
 
           {/* Range Mode Switcher */}
@@ -174,9 +138,9 @@ export const GanttWeeklyView: React.FC<GanttWeeklyViewProps> = ({
               className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                 hoursMode === 'work' ? 'bg-[#141f5b] text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'
               }`}
-              title={`Ver rango dinámico (${startHourLabel} - ${endHourLabel})`}
+              title="8:00 am a 8:00 pm"
             >
-              {startHourLabel} - {endHourLabel}
+              8:00 am - 8:00 pm
             </button>
             <button
               onClick={() => setHoursMode('full')}
@@ -255,6 +219,7 @@ export const GanttWeeklyView: React.FC<GanttWeeklyViewProps> = ({
               {hoursToDisplay.map((hour24) => {
                 const hourAmPm = formatHourAmPm(hour24); // e.g. "8:00 am" or "7:00 pm"
                 const hour24TimeStr = `${String(hour24).padStart(2, '0')}:00`;
+                const nextHour24TimeStr = `${String((hour24 + 1) % 24).padStart(2, '0')}:00`;
 
                 return (
                   <tr key={hour24} className="hover:bg-gray-50/30 transition-colors">
@@ -269,7 +234,7 @@ export const GanttWeeklyView: React.FC<GanttWeeklyViewProps> = ({
                     {/* Day Slot Cells */}
                     {weekDays.map((day) => {
                       const slotStartIso = localTimeToUtcIso(day.dateStr, hour24TimeStr, activeTimeZone);
-                      const slotEndIso = new Date(new Date(slotStartIso).getTime() + 60 * 60 * 1000).toISOString();
+                      const slotEndIso = localTimeToUtcIso(day.dateStr, nextHour24TimeStr, activeTimeZone);
 
                       // Calculate availability for active members
                       const availableMemberIds: string[] = [];
@@ -288,13 +253,14 @@ export const GanttWeeklyView: React.FC<GanttWeeklyViewProps> = ({
                       const availableCount = availableMemberIds.length;
                       const unavailableCount = unavailableMemberIds.length;
 
-                      // Exact matching states:
+                      // Exact matching states according to user rules:
                       // 1. All coincide: all available -> Verde
-                      // 2. Partial coincide (3, 4 or subset match): availableCount > 0 && < total -> Amarillo
-                      // 3. Nobody coincides: availableCount === 0 -> Grey
+                      // 2. Only 1 or 2 do not coincide: unavailableCount in [1, 2] -> Amarillo
+                      // 3. More than 2 do not coincide or nobody coincides: Gray/Sin coincidencia
                       const isAllCoincide = total > 0 && availableCount === total;
+                      const isOneOrTwoMissing = total > 1 && (unavailableCount === 1 || unavailableCount === 2) && availableCount > 0;
+                      const isYellowState = isOneOrTwoMissing;
                       const isNobodyCoincides = total > 0 && availableCount === 0;
-                      const isPartialCoincide = !isAllCoincide && availableCount > 0;
 
                       // Overlap slot payload for scheduling modal
                       const overlapSlot: OverlapSlot = {
@@ -309,13 +275,14 @@ export const GanttWeeklyView: React.FC<GanttWeeklyViewProps> = ({
                         dateKey: day.dateStr
                       };
 
-                      // Slot background styling:
-                      // Green if ALL match, Yellow if 3, 4 or partial match, Grey if nobody matches.
-                      let slotContainerStyle = 'bg-gray-50/60 border border-gray-200/90';
+                      // Slot background styling matching user requirements:
+                      // - Verde if all coincide
+                      // - Gray if they don't coincide
+                      let slotContainerStyle = 'bg-white border-gray-200';
                       if (isAllCoincide) {
-                        slotContainerStyle = 'bg-emerald-50/80 border-2 border-emerald-400 shadow-2xs';
-                      } else if (isPartialCoincide) {
-                        slotContainerStyle = 'bg-[#FFFDF4] border-2 border-[#F4DF77] shadow-2xs';
+                        slotContainerStyle = 'bg-emerald-50/95 border-2 border-emerald-500 shadow-xs ring-1 ring-emerald-500/20';
+                      } else {
+                        slotContainerStyle = 'bg-gray-50/70 border border-gray-200/90';
                       }
 
                       return (
@@ -330,71 +297,50 @@ export const GanttWeeklyView: React.FC<GanttWeeklyViewProps> = ({
                             <div className="flex items-center justify-between gap-1 pb-1">
                               {isAllCoincide ? (
                                 <>
-                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-900">
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-emerald-900">
                                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                    <span>Coinciden todos</span>
+                                    <span>Coinciden todas</span>
                                   </span>
 
                                   <div className="flex items-center gap-1.5">
-                                    <span className="text-[10px] font-mono font-semibold bg-white text-emerald-900 px-1.5 py-0.5 rounded-md border border-emerald-300 shadow-2xs">
+                                    <span className="text-[10px] font-mono font-bold bg-white text-emerald-900 px-1.5 py-0.5 rounded-md border border-emerald-300 shadow-2xs">
                                       {availableCount}/{total}
                                     </span>
                                     <button
                                       onClick={() => onSelectSlotToSchedule(overlapSlot)}
                                       className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#141f5b] hover:bg-[#1a2875] text-white text-[10px] font-bold transition-all shadow-xs cursor-pointer"
-                                      title="Agendar reunión con todos los participantes en este horario"
+                                      title="Agendar reunión con todas las participantes en este horario"
                                     >
                                       <CalendarPlus className="w-3 h-3 text-[#acc917]" />
                                       <span>Agendar</span>
                                     </button>
                                   </div>
                                 </>
-                              ) : isNobodyCoincides ? (
-                                <>
-                                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-500">
-                                    <span>{total} no coinciden</span>
-                                  </span>
-                                  <span className="text-[10px] font-mono font-medium bg-white text-gray-500 px-1.5 py-0.5 rounded-md border border-gray-200 shadow-2xs">
-                                    0/{total}
-                                  </span>
-                                </>
                               ) : (
                                 <>
-                                  <span className="text-[11px] font-medium text-gray-800 truncate">
-                                    {unavailableCount === 1 ? '1 no coincide' : `${unavailableCount} no coinciden`}
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-500">
+                                    <span>{availableCount > 0 ? `${availableCount} disponibles` : 'Sin coincidencia'}</span>
                                   </span>
-                                  <span className="text-[10px] font-mono font-medium bg-white text-gray-700 px-1.5 py-0.5 rounded-md border border-gray-200/90 shadow-2xs">
+                                  <span className="text-[10px] font-mono font-medium bg-white text-gray-500 px-1.5 py-0.5 rounded-md border border-gray-200 shadow-2xs">
                                     {availableCount}/{total}
                                   </span>
                                 </>
                               )}
                             </div>
 
-                            {/* Slot Members List: showing all available participants + missing members with red border */}
+                            {/* Slot Members List: Shows all active members; non-coinciding members rendered with red border */}
                             <div className="space-y-1.5 flex-1 pt-0.5">
-                              {availableCount > 0 ? (
-                                <>
-                                  {activeMembers
-                                    .filter((member) => availableMemberIds.includes(member.id))
-                                    .map((member) => (
-                                      <SlotMemberItem
-                                        key={member.id}
-                                        member={member}
-                                        isAvailable={true}
-                                      />
-                                    ))}
-                                  {isPartialCoincide && (
-                                    activeMembers
-                                      .filter((member) => unavailableMemberIds.includes(member.id))
-                                      .map((member) => (
-                                        <SlotMemberItem
-                                          key={member.id}
-                                          member={member}
-                                          isAvailable={false}
-                                        />
-                                      ))
-                                  )}
-                                </>
+                              {activeMembers.length > 0 ? (
+                                activeMembers.map((member) => {
+                                  const isAvailable = availableMemberIds.includes(member.id);
+                                  return (
+                                    <SlotMemberItem
+                                      key={member.id}
+                                      member={member}
+                                      isAvailable={isAvailable}
+                                    />
+                                  );
+                                })
                               ) : (
                                 <div className="h-full flex items-center justify-center p-2 text-center">
                                   <span className="text-[10px] text-gray-400 italic">

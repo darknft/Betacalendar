@@ -351,7 +351,7 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({
           <div className="min-w-[1100px] select-none">
             
             {/* Table Header:
-                1. Column 1: Participantes (Sofia, Pamela, Karla, Denisse...)
+                1. Column 1: Participantes (Pamela, Sofia, Rebeca, Guillermina, Lara)
                 2. Column 2: Horas (Horas que trabajan + Horas libres para reunirse)
                 3. Columns for: DÍAS (con etiqueta prominente DÍAS en rojo como el dibujo) */}
             <div className="flex border-b border-gray-200 bg-gray-50/90 text-xs font-semibold text-gray-700">
@@ -580,17 +580,12 @@ export const DailyTimeline: React.FC<DailyTimelineProps> = ({
               </div>
             </div>
 
-            {/* Individual Member Rows:
-                As shown in screenshot: Sofia, Pamela, Karla, Denisse...
-                With green horizontal row selection box around Pamela and her green boxes under Tues 15! */}
+            {/* Individual Member Rows */}
             <div className="divide-y divide-gray-200">
               {activeMembers.map((member) => {
                 const countryInfo = COUNTRY_FLAG_MAP[member.country] || { flag: '🌐', name: member.country };
                 const hoursInfo = getMemberHoursDetailed(member);
                 const isPamela = member.firstName.toLowerCase().includes('pamela');
-                const isSofia = member.firstName.toLowerCase().includes('sofia') || member.firstName.toLowerCase().includes('sofía');
-                const isKarla = member.firstName.toLowerCase().includes('karla');
-                const isDenisse = member.firstName.toLowerCase().includes('denisse');
                 const isHighlighted = highlightedMemberId === member.id;
 
                 return (

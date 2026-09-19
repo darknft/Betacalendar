@@ -68,25 +68,43 @@ export default function App() {
     }
   })();
 
-  // Persistent or initial members
+  // Persistent or initial members (strictly 5 team members: Pamela, Sofia, Rebeca, Guillermina, Lara)
   const [members, setMembers] = useState<Member[]>(() => {
     if (typeof localStorage !== 'undefined') {
-      const saved = localStorage.getItem('timesync_team_members_v4');
+      const saved = localStorage.getItem('timesync_team_members_v3');
       if (saved) {
-        return safeJsonParse<Member[]>(saved, INITIAL_MEMBERS);
+        const parsed = safeJsonParse<Member[]>(saved, INITIAL_MEMBERS);
+        const isForbidden = (m: Member) => {
+          const fn = m.firstName?.toLowerCase() || '';
+          return fn.includes('karla') || fn.includes('carlos') || fn.includes('claudia') || fn.includes('denisse');
+        };
+        const cleaned = parsed.filter((m) => !isForbidden(m));
+        // Ensure Pamela is Admin
+        const pamela = cleaned.find((m) => m.email === 'bpamelamedina@gmail.com' || m.firstName === 'Pamela');
+        if (pamela) pamela.role = 'admin';
+
+        // Ensure all 5 official members are present
+        for (const initM of INITIAL_MEMBERS) {
+          if (!cleaned.some((cm) => cm.id === initM.id || cm.email === initM.email)) {
+            cleaned.push(initM);
+          }
+        }
+        return cleaned.slice(0, 5);
       }
     }
     return INITIAL_MEMBERS;
   });
 
-  // Selected members for overlap computation (default to all)
+  // Selected members for overlap computation (default to all active members)
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>(() => 
     INITIAL_MEMBERS.map((m) => m.id)
   );
 
-  // Active user session (defaults to Sofia Morales - Admin)
+  // Active user session (defaults to Pamela Medina - Admin)
   const [currentUser, setCurrentUser] = useState<Member | null>(() => 
-    members.find((m) => m.role === 'admin') || members[0]
+    members.find((m) => m.email === 'bpamelamedina@gmail.com') ||
+    members.find((m) => m.role === 'admin') ||
+    members[0]
   );
 
   // Active projection timezone
@@ -129,7 +147,7 @@ export default function App() {
   // Synchronize members to localStorage as resilient offline cache
   useEffect(() => {
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('timesync_team_members_v4', JSON.stringify(members));
+      localStorage.setItem('timesync_team_members_v2', JSON.stringify(members));
     }
   }, [members]);
 
@@ -146,6 +164,13 @@ export default function App() {
         if (!isMounted) return;
         if (cloudMembers && cloudMembers.length > 0) {
           setMembers(cloudMembers);
+          // Keep selectedMemberIds up-to-date with all valid cloud member IDs
+          setSelectedMemberIds((prev) => {
+            const validCloudIds = cloudMembers.map((m) => m.id);
+            // Ensure newly synced members are included
+            const union = Array.from(new Set([...prev.filter((id) => validCloudIds.includes(id)), ...validCloudIds]));
+            return union.length > 0 ? union : validCloudIds;
+          });
           setCloudSyncStatus('synced');
         }
       },

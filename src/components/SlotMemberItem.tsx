@@ -11,42 +11,44 @@ interface SlotMemberItemProps {
 export const SlotMemberItem: React.FC<SlotMemberItemProps> = ({ member, isAvailable = true }) => {
   const flag = COUNTRY_FLAG_MAP[member.country]?.flag || '🌐';
 
-  const containerClasses = isAvailable
-    ? 'bg-white border border-gray-150 shadow-2xs hover:shadow-xs'
-    : 'bg-red-50/70 border-2 border-red-500 shadow-2xs text-red-950';
-
   return (
     <div
-      className={`flex items-center justify-between px-3 py-2 rounded-xl transition-all ${containerClasses}`}
-      title={`${member.firstName} ${member.lastName}: ${
+      className={`flex items-center justify-between px-3 py-2 rounded-xl transition-all ${
         isAvailable
-          ? `Disponible para reunión (${formatMeetingSlotsSummary(member)})`
-          : `No disponible en este horario (${formatMeetingSlotsSummary(member)})`
+          ? 'bg-white border border-gray-200 shadow-2xs hover:shadow-xs'
+          : 'bg-gray-50/90 border border-gray-200/80 text-gray-400 opacity-70'
       }`}
+      title={
+        isAvailable
+          ? `${member.firstName} ${member.lastName}: Disponible para reunión (${formatMeetingSlotsSummary(member)} en su zona)`
+          : `${member.firstName} ${member.lastName}: No coincide en este horario`
+      }
     >
       {/* Left: Avatar image and First + Last name */}
       <div className="flex items-center gap-2.5 min-w-0">
-        {member.avatarUrl ? (
-          <img
-            src={member.avatarUrl}
-            alt={`${member.firstName} ${member.lastName}`}
-            referrerPolicy="no-referrer"
-            className={`w-6 h-6 rounded-full object-cover shrink-0 border shadow-2xs ${
-              isAvailable ? 'border-gray-200' : 'border-red-400 ring-1 ring-red-400'
-            }`}
-          />
-        ) : (
-          <div
-            className={`w-6 h-6 rounded-full text-white flex items-center justify-center text-[10px] font-bold shrink-0 ${
-              isAvailable ? 'bg-[#141f5b]' : 'bg-red-700'
-            }`}
-          >
-            {member.firstName[0]}
-          </div>
-        )}
+        <div className="relative shrink-0">
+          {member.avatarUrl ? (
+            <img
+              src={member.avatarUrl}
+              alt={`${member.firstName} ${member.lastName}`}
+              referrerPolicy="no-referrer"
+              className={`w-6 h-6 rounded-full object-cover shrink-0 shadow-2xs ${
+                isAvailable ? 'border border-gray-200' : 'border border-gray-300 opacity-80'
+              }`}
+            />
+          ) : (
+            <div
+              className={`w-6 h-6 rounded-full text-white flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                isAvailable ? 'bg-[#141f5b]' : 'bg-gray-400'
+              }`}
+            >
+              {member.firstName[0]}
+            </div>
+          )}
+        </div>
         <span
-          className={`text-xs font-semibold truncate leading-tight ${
-            isAvailable ? 'text-gray-800' : 'text-red-900 font-bold'
+          className={`text-xs truncate leading-tight ${
+            isAvailable ? 'font-semibold text-gray-800' : 'font-normal text-gray-500'
           }`}
         >
           {member.firstName} {member.lastName}
@@ -54,9 +56,11 @@ export const SlotMemberItem: React.FC<SlotMemberItemProps> = ({ member, isAvaila
       </div>
 
       {/* Right: Country flag */}
-      <span className="text-sm shrink-0 ml-1.5 select-none leading-none">
-        {flag}
-      </span>
+      <div className="flex items-center gap-1.5 shrink-0 ml-1.5">
+        <span className={`text-sm select-none leading-none ${!isAvailable ? 'opacity-60' : ''}`}>
+          {flag}
+        </span>
+      </div>
     </div>
   );
 };

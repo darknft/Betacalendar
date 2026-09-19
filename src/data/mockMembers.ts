@@ -1,7 +1,9 @@
 import { Member } from '../types';
 
 /**
- * Initial Team Members Dataset (All Female Team Members as in original app / image.png)
+ * Dataset oficial del equipo: 5 colaboradoras registradas en la aplicación
+ * Pamela Medina (Admin, El Salvador), Sofia Aubone (Argentina), Rebeca Origel (Estados Unidos/Colombia),
+ * Guillermina Lazzari (Argentina) y Lara Fernandez (España).
  */
 
 const today = new Date();
@@ -14,7 +16,7 @@ const getFormattedDay = (offsetDays: number = 0) => {
 export const INITIAL_MEMBERS: Member[] = [
   {
     id: 'b56ea21f-11ca-4921-9988-2e34a1b2c890',
-    auth_id: 'auth_usr_pamela_admin_02',
+    auth_id: 'auth_usr_pamela_admin_01',
     firstName: 'Pamela',
     lastName: 'Medina',
     email: 'bpamelamedina@gmail.com',
@@ -24,44 +26,56 @@ export const INITIAL_MEMBERS: Member[] = [
     country: 'SV',
     timeZone: 'America/El_Salvador',
     workStart: '08:00',
-    workEnd: '17:00',
+    workEnd: '18:00',
     meetingStart: '09:00',
-    meetingEnd: '12:00',
+    meetingEnd: '13:00',
     meetingSlots: [
-      { start: '09:00', end: '12:00' },
-      { start: '17:00', end: '23:00' }
+      { start: '09:00', end: '13:00' },
+      { start: '17:00', end: '20:00' }
     ],
-    saturdaySlots: [],
-    sundaySlots: [],
+    saturdaySlots: [
+      { start: '10:00', end: '13:00' }
+    ],
+    sundaySlots: [
+      { start: '14:00', end: '16:00' }
+    ],
     role: 'admin',
     avatarSeed: 'pamela',
     avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
-    busySlots: [],
+    busySlots: [
+      {
+        start: `${getFormattedDay(0)}T18:00:00Z`,
+        end: `${getFormattedDay(0)}T19:00:00Z`,
+        title: 'Sync Proyecto Core',
+        source: 'google_calendar'
+      }
+    ],
     availableSlots: [
       {
         start: `${getFormattedDay(0)}T15:00:00Z`,
-        end: `${getFormattedDay(0)}T18:00:00Z`,
-        title: 'Ventana de reuniones'
+        end: `${getFormattedDay(0)}T19:00:00Z`,
+        title: 'Ventana de reuniones y sincronizaciones'
       }
     ]
   },
   {
-    id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
-    auth_id: 'auth_usr_sofia_member_01',
+    id: 'usr_sofia_aubone',
+    auth_id: 'auth_sofia_aubone',
     firstName: 'Sofia',
     lastName: 'Aubone',
-    email: 'aubonesofia@gmail.com',
-    password: 'Guestlocal26@',
-    teamSpaceId: '7b8c2e1f-49a3-4812-9c3f-1d4e7a8b9c0d',
+    email: 'sofiaaubone@gmail.com',
+    password: 'Guestssofia26@',
+    teamSpaceId: 'space_core_engineering',
     type: 'INTERNAL',
-    country: 'ES',
-    timeZone: 'America/El_Salvador',
+    country: 'AR',
+    timeZone: 'America/Buenos_Aires',
     workStart: '08:00',
     workEnd: '17:00',
     meetingStart: '09:00',
-    meetingEnd: '12:00',
+    meetingEnd: '17:00',
     meetingSlots: [
-      { start: '09:00', end: '12:00' }
+      { start: '09:00', end: '13:00' },
+      { start: '14:00', end: '17:00' }
     ],
     saturdaySlots: [],
     sundaySlots: [],
@@ -72,65 +86,13 @@ export const INITIAL_MEMBERS: Member[] = [
     availableSlots: []
   },
   {
-    id: 'usr_guillermina_01',
-    auth_id: 'auth_usr_guillermina_01',
-    firstName: 'Guillermina',
-    lastName: 'Lazzari',
-    email: 'guillerminalazzari@gmail.com',
-    password: 'Guesttwo26@',
-    teamSpaceId: '7b8c2e1f-49a3-4812-9c3f-1d4e7a8b9c0d',
-    type: 'INTERNAL',
-    country: 'AR',
-    timeZone: 'America/Buenos_Aires',
-    workStart: '08:00',
-    workEnd: '17:00',
-    meetingStart: '09:00',
-    meetingEnd: '12:00',
-    meetingSlots: [
-      { start: '09:00', end: '12:00' }
-    ],
-    saturdaySlots: [],
-    sundaySlots: [],
-    role: 'member',
-    avatarSeed: 'guillermina',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    busySlots: [],
-    availableSlots: []
-  },
-  {
-    id: 'usr_lara_02',
-    auth_id: 'auth_usr_lara_02',
-    firstName: 'Lara',
-    lastName: 'Ferenandez',
-    email: 'laratfernandez@gmail.com',
-    password: 'Guestlspain26@',
-    teamSpaceId: '7b8c2e1f-49a3-4812-9c3f-1d4e7a8b9c0d',
-    type: 'INTERNAL',
-    country: 'ES',
-    timeZone: 'America/El_Salvador',
-    workStart: '08:00',
-    workEnd: '17:00',
-    meetingStart: '09:00',
-    meetingEnd: '12:00',
-    meetingSlots: [
-      { start: '09:00', end: '12:00' }
-    ],
-    saturdaySlots: [],
-    sundaySlots: [],
-    role: 'member',
-    avatarSeed: 'lara',
-    avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
-    busySlots: [],
-    availableSlots: []
-  },
-  {
-    id: 'usr_rebeca_03',
-    auth_id: 'auth_usr_rebeca_03',
+    id: 'usr_1789754952248',
+    auth_id: 'auth_1789754952248',
     firstName: 'Rebeca',
     lastName: 'Origel',
     email: 'rebecaorigel.m@gmail.com',
     password: 'Guestone26@',
-    teamSpaceId: '7b8c2e1f-49a3-4812-9c3f-1d4e7a8b9c0d',
+    teamSpaceId: 'space_core_engineering',
     type: 'INTERNAL',
     country: 'US',
     timeZone: 'America/Bogota',
@@ -147,7 +109,96 @@ export const INITIAL_MEMBERS: Member[] = [
     sundaySlots: [],
     role: 'member',
     avatarSeed: 'rebeca',
-    avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
+    avatarUrl: 'https://ca.slack-edge.com/T08D5ENMELW-U0B7ZM92W22-b1c6ceb69969-512',
+    busySlots: [],
+    availableSlots: []
+  },
+  {
+    id: 'usr_1789755126839',
+    auth_id: 'auth_1789755126839',
+    firstName: 'Guillermina',
+    lastName: 'Lazzari',
+    email: 'guillerminalazzari@gmail.com',
+    password: 'Guesttwo26@',
+    teamSpaceId: 'space_core_engineering',
+    type: 'INTERNAL',
+    country: 'AR',
+    timeZone: 'America/Buenos_Aires',
+    workStart: '08:00',
+    workEnd: '17:00',
+    meetingStart: '09:00',
+    meetingEnd: '12:00',
+    meetingSlots: [
+      { start: '09:00', end: '12:00' }
+    ],
+    saturdaySlots: [],
+    sundaySlots: [],
+    role: 'member',
+    avatarSeed: 'guillermina',
+    avatarUrl: 'https://ca.slack-edge.com/T08D5ENMELW-U0AKAJZ7CHW-e2f987658dbb-512',
+    busySlots: [
+      {
+        start: '2026-09-22T16:00:00.000Z',
+        end: '2026-09-22T17:30:00.000Z',
+        title: 'Bloqueo de Agenda',
+        source: 'manual'
+      },
+      {
+        start: '2026-09-29T16:00:00.000Z',
+        end: '2026-09-29T17:30:00.000Z',
+        title: 'Bloqueo de Agenda',
+        source: 'manual'
+      },
+      {
+        start: '2026-10-06T16:00:00.000Z',
+        end: '2026-10-06T17:30:00.000Z',
+        title: 'Bloqueo de Agenda',
+        source: 'manual'
+      },
+      {
+        start: '2026-09-23T14:00:00.000Z',
+        end: '2026-09-23T17:00:00.000Z',
+        title: 'Bloqueo de Agenda',
+        source: 'manual'
+      },
+      {
+        start: '2026-09-30T14:00:00.000Z',
+        end: '2026-09-30T17:00:00.000Z',
+        title: 'Bloqueo de Agenda',
+        source: 'manual'
+      },
+      {
+        start: '2026-10-07T14:00:00.000Z',
+        end: '2026-10-07T17:00:00.000Z',
+        title: 'Bloqueo de Agenda',
+        source: 'manual'
+      }
+    ],
+    availableSlots: []
+  },
+  {
+    id: 'usr_1789755180057',
+    auth_id: 'auth_1789755180057',
+    firstName: 'Lara',
+    lastName: 'Ferenandez',
+    email: 'laratfernandez@gmail.com',
+    password: 'Guestlspain26@',
+    teamSpaceId: 'space_core_engineering',
+    type: 'INTERNAL',
+    country: 'ES',
+    timeZone: 'America/El_Salvador',
+    workStart: '08:00',
+    workEnd: '17:00',
+    meetingStart: '09:00',
+    meetingEnd: '12:00',
+    meetingSlots: [
+      { start: '09:00', end: '12:00' }
+    ],
+    saturdaySlots: [],
+    sundaySlots: [],
+    role: 'member',
+    avatarSeed: 'lara',
+    avatarUrl: 'https://ca.slack-edge.com/T08D5ENMELW-U0BTKR7DQAZ-758bb8246922-512',
     busySlots: [],
     availableSlots: []
   }

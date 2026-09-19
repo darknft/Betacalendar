@@ -108,11 +108,51 @@ export function subscribeToMembers(
 
       const remoteMembers: Member[] = [];
       snapshot.forEach((docSnap) => {
-        remoteMembers.push(docSnap.data() as Member);
+        const data = docSnap.data() as Member;
+        const isExampleOrForbidden = 
+          data.firstName?.toLowerCase().includes('karla') ||
+          data.firstName?.toLowerCase().includes('carlos') || 
+          data.firstName?.toLowerCase().includes('claudia') ||
+          data.firstName?.toLowerCase().includes('denisse');
+
+        if (isExampleOrForbidden) {
+          // Clean up example or forbidden members from Firestore
+          deleteDoc(docSnap.ref).catch(() => {});
+        } else {
+          remoteMembers.push(data);
+        }
       });
 
-      // Sort consistently by firstName
-      remoteMembers.sort((a, b) => a.firstName.localeCompare(b.firstName));
+      // If Sofia was removed or if remoteMembers is missing Pamela or has fewer than 5 members, ensure Pamela and all 5 members exist
+      if (remoteMembers.length === 0) {
+        await seedMembersIfEmpty();
+        onUpdate(INITIAL_MEMBERS);
+        return;
+      }
+
+      // Check if Pamela Medina is in remote members; ensure she is admin
+      const pamelaIndex = remoteMembers.findIndex(m => m.email === 'bpamelamedina@gmail.com' || (m.firstName === 'Pamela' && m.lastName === 'Medina'));
+      if (pamelaIndex !== -1 && remoteMembers[pamelaIndex].role !== 'admin') {
+        remoteMembers[pamelaIndex].role = 'admin';
+        setDoc(doc(db, 'members', remoteMembers[pamelaIndex].id), { role: 'admin' }, { merge: true }).catch(() => {});
+      }
+
+      // If remoteMembers has fewer than 5 members, supplement with remaining initial members
+      if (remoteMembers.length < 5) {
+        for (const initM of INITIAL_MEMBERS) {
+          if (!remoteMembers.some(rm => rm.id === initM.id || rm.email === initM.email)) {
+            remoteMembers.push(initM);
+            setDoc(doc(db, 'members', initM.id), initM).catch(() => {});
+          }
+        }
+      }
+
+      // Sort consistently by firstName (Pamela first if admin, or alphabetically)
+      remoteMembers.sort((a, b) => {
+        if (a.role === 'admin' && b.role !== 'admin') return -1;
+        if (b.role === 'admin' && a.role !== 'admin') return 1;
+        return a.firstName.localeCompare(b.firstName);
+      });
       onUpdate(remoteMembers);
     },
     (err) => {
