@@ -47,29 +47,44 @@ export async function testFirestoreConnection(): Promise<boolean> {
   }
 }
 
+export const CURRENT_SEED_VERSION = 5;
+
 /**
- * Seed initial members into Firestore if the collection is empty AND never seeded before
+ * Seed or re-seed initial members into Firestore when seed version changes
  */
 export async function seedMembersIfEmpty(): Promise<void> {
   try {
     const metaRef = doc(db, 'system', 'meta');
     const metaSnap = await getDoc(metaRef);
-    if (metaSnap.exists() && metaSnap.data()?.hasSeeded) {
-      // User or system has already processed the initial seed. If empty, it means all members were deliberately deleted.
+    const data = metaSnap.data();
+
+    if (data?.seedVersion === CURRENT_SEED_VERSION) {
       return;
     }
 
+    console.log('Syncing team dataset (Version 5) to Firestore...');
     const colRef = collection(db, 'members');
     const snapshot = await getDocs(colRef);
-    if (snapshot.empty) {
-      console.log('Seeding initial members to Firestore...');
-      for (const member of INITIAL_MEMBERS) {
-        await setDoc(doc(db, 'members', member.id), member);
-      }
-      await setDoc(metaRef, { hasSeeded: true, seededAt: new Date().toISOString() });
-    } else {
-      await setDoc(metaRef, { hasSeeded: true });
+
+    // Delete legacy members if schema or dataset updated
+    if (!snapshot.empty) {
+      const batch = writeBatch(db);
+      snapshot.forEach((docSnap) => {
+        batch.delete(docSnap.ref);
+      });
+      await batch.commit();
     }
+
+    // Write updated team members (Pamela Medina as Admin, etc.)
+    for (const member of INITIAL_MEMBERS) {
+      await setDoc(doc(db, 'members', member.id), member);
+    }
+
+    await setDoc(metaRef, {
+      hasSeeded: true,
+      seedVersion: CURRENT_SEED_VERSION,
+      updatedAt: new Date().toISOString()
+    });
   } catch (error) {
     console.error('Error seeding members to Firestore:', error);
   }
@@ -87,22 +102,21 @@ export function subscribeToMembers(
   const unsubscribe = onSnapshot(
     colRef,
     async (snapshot) => {
-      if (snapshot.empty) {
-        // Check if database has already been seeded before
+      // Check if Firestore dataset requires seed update (v5)
+      try {
         const metaRef = doc(db, 'system', 'meta');
-        try {
-          const metaSnap = await getDoc(metaRef);
-          if (metaSnap.exists() && metaSnap.data()?.hasSeeded) {
-            // Deliberately empty, do not re-seed!
-            onUpdate([]);
-            return;
-          }
-        } catch {
-          // If offline or permission check
+        const metaSnap = await getDoc(metaRef);
+        if (!metaSnap.exists() || metaSnap.data()?.seedVersion !== CURRENT_SEED_VERSION) {
+          await seedMembersIfEmpty();
+          onUpdate(INITIAL_MEMBERS);
+          return;
         }
+      } catch (e) {
+        console.warn('Meta check warning:', e);
+      }
 
-        await seedMembersIfEmpty();
-        onUpdate(INITIAL_MEMBERS);
+      if (snapshot.empty) {
+        onUpdate([]);
         return;
       }
 
