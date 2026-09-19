@@ -39,6 +39,12 @@ export const INITIAL_MEMBERS: Member[] = [
     avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
     busySlots: [
       {
+        start: `${getFormattedDay(0)}T15:00:00Z`, // 09:00 AM SV
+        end: `${getFormattedDay(0)}T16:00:00Z`,   // 10:00 AM SV
+        title: 'Daily Standup & Sync',
+        source: 'google_calendar'
+      },
+      {
         start: `${getFormattedDay(1)}T17:00:00Z`,
         end: `${getFormattedDay(1)}T18:00:00Z`,
         title: 'Architecture Review',
@@ -69,8 +75,9 @@ export const INITIAL_MEMBERS: Member[] = [
     meetingStart: '08:00',
     meetingEnd: '22:00',
     meetingSlots: [
-      { start: '09:00', end: '12:00' },
-      { start: '17:00', end: '23:00' }
+      { start: '08:00', end: '09:00' },
+      { start: '10:00', end: '12:00' },
+      { start: '17:00', end: '22:00' }
     ],
     saturdaySlots: [
       { start: '10:00', end: '12:00' }
@@ -111,7 +118,7 @@ export const INITIAL_MEMBERS: Member[] = [
     meetingStart: '10:00',
     meetingEnd: '12:00',
     meetingSlots: [
-      { start: '09:00', end: '12:00' }
+      { start: '10:00', end: '12:00' }
     ],
     saturdaySlots: [],
     sundaySlots: [],
@@ -150,7 +157,7 @@ export const INITIAL_MEMBERS: Member[] = [
     meetingStart: '10:00',
     meetingEnd: '14:00',
     meetingSlots: [
-      { start: '09:00', end: '12:00' }
+      { start: '10:00', end: '14:00' }
     ],
     saturdaySlots: [
       { start: '15:00', end: '17:00' }
