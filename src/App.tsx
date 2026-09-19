@@ -71,7 +71,7 @@ export default function App() {
   // Persistent or initial members
   const [members, setMembers] = useState<Member[]>(() => {
     if (typeof localStorage !== 'undefined') {
-      const saved = localStorage.getItem('timesync_team_members_v2');
+      const saved = localStorage.getItem('timesync_team_members_v4');
       if (saved) {
         return safeJsonParse<Member[]>(saved, INITIAL_MEMBERS);
       }
@@ -129,7 +129,7 @@ export default function App() {
   // Synchronize members to localStorage as resilient offline cache
   useEffect(() => {
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('timesync_team_members_v2', JSON.stringify(members));
+      localStorage.setItem('timesync_team_members_v4', JSON.stringify(members));
     }
   }, [members]);
 

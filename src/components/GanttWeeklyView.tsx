@@ -45,19 +45,50 @@ export const GanttWeeklyView: React.FC<GanttWeeklyViewProps> = ({
   const activeMembers = members.filter((m) => selectedMemberIds.includes(m.id));
   const weekDays = getWeekDates(referenceDate);
 
-  // Determine hours array (no military hours!)
+  // Determine hours array dynamically based on members' meeting and work slots
   const hoursToDisplay = (() => {
-    if (hoursMode === 'work') {
-      // 8:00 am to 7:00 pm / 8:00 pm
-      return Array.from({ length: 13 }, (_, i) => i + 8); // 8 to 20
+    if (hoursMode === 'full') {
+      return Array.from({ length: 24 }, (_, i) => i);
     }
-    if (hoursMode === 'extended') {
-      // 7:00 am to 10:00 pm
-      return Array.from({ length: 16 }, (_, i) => i + 7); // 7 to 22
-    }
-    // 24 hours
-    return Array.from({ length: 24 }, (_, i) => i);
+
+    let minH = 8;
+    let maxH = 20; // 8:00 pm default
+
+    activeMembers.forEach((member) => {
+      const slots = [
+        ...(member.meetingSlots || []),
+        ...(member.saturdaySlots || []),
+        ...(member.sundaySlots || [])
+      ];
+      if (member.meetingStart && member.meetingEnd) {
+        slots.push({ start: member.meetingStart, end: member.meetingEnd });
+      }
+      if (member.workStart && member.workEnd) {
+        slots.push({ start: member.workStart, end: member.workEnd });
+      }
+
+      slots.forEach((s) => {
+        if (s.start) {
+          const startH = parseInt(s.start.split(':')[0], 10);
+          if (!isNaN(startH) && startH < minH) minH = Math.max(0, startH);
+        }
+        if (s.end) {
+          const parts = s.end.split(':');
+          const endH = parseInt(parts[0], 10);
+          const endM = parseInt(parts[1] || '0', 10);
+          if (!isNaN(endH)) {
+            let targetMaxH = endM > 0 ? endH : (endH > 0 ? endH - 1 : 23);
+            if (targetMaxH > maxH) maxH = Math.min(23, targetMaxH);
+          }
+        }
+      });
+    });
+
+    return Array.from({ length: maxH - minH + 1 }, (_, i) => minH + i);
   })();
+
+  const startHourLabel = formatHourAmPm(hoursToDisplay[0] ?? 8);
+  const endHourLabel = formatHourAmPm(hoursToDisplay[hoursToDisplay.length - 1] ?? 20);
 
   // Navigation handlers
   const handlePrevWeek = () => {
@@ -143,9 +174,9 @@ export const GanttWeeklyView: React.FC<GanttWeeklyViewProps> = ({
               className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                 hoursMode === 'work' ? 'bg-[#141f5b] text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'
               }`}
-              title="8:00 am a 8:00 pm"
+              title={`Ver rango dinámico (${startHourLabel} - ${endHourLabel})`}
             >
-              8:00 am - 8:00 pm
+              {startHourLabel} - {endHourLabel}
             </button>
             <button
               onClick={() => setHoursMode('full')}
@@ -224,7 +255,6 @@ export const GanttWeeklyView: React.FC<GanttWeeklyViewProps> = ({
               {hoursToDisplay.map((hour24) => {
                 const hourAmPm = formatHourAmPm(hour24); // e.g. "8:00 am" or "7:00 pm"
                 const hour24TimeStr = `${String(hour24).padStart(2, '0')}:00`;
-                const nextHour24TimeStr = `${String((hour24 + 1) % 24).padStart(2, '0')}:00`;
 
                 return (
                   <tr key={hour24} className="hover:bg-gray-50/30 transition-colors">
@@ -239,7 +269,7 @@ export const GanttWeeklyView: React.FC<GanttWeeklyViewProps> = ({
                     {/* Day Slot Cells */}
                     {weekDays.map((day) => {
                       const slotStartIso = localTimeToUtcIso(day.dateStr, hour24TimeStr, activeTimeZone);
-                      const slotEndIso = localTimeToUtcIso(day.dateStr, nextHour24TimeStr, activeTimeZone);
+                      const slotEndIso = new Date(new Date(slotStartIso).getTime() + 60 * 60 * 1000).toISOString();
 
                       // Calculate availability for active members
                       const availableMemberIds: string[] = [];
@@ -258,15 +288,13 @@ export const GanttWeeklyView: React.FC<GanttWeeklyViewProps> = ({
                       const availableCount = availableMemberIds.length;
                       const unavailableCount = unavailableMemberIds.length;
 
-                      // Exact matching states according to user rules:
+                      // Exact matching states:
                       // 1. All coincide: all available -> Verde
-                      // 2. Only 1 does not coincide: unavailableCount === 1 -> Amarillo, non-coinciding member gets red border
-                      // 3. Nobody coincides: availableCount === 0 -> Red border
-                      // 4. Multiple do not coincide: partial yellow
+                      // 2. Partial coincide (3, 4 or subset match): availableCount > 0 && < total -> Amarillo
+                      // 3. Nobody coincides: availableCount === 0 -> Grey
                       const isAllCoincide = total > 0 && availableCount === total;
-                      const isOnlyOneMissing = total > 1 && unavailableCount === 1;
                       const isNobodyCoincides = total > 0 && availableCount === 0;
-                      const isPartial = !isAllCoincide && !isOnlyOneMissing && !isNobodyCoincides && availableCount > 0;
+                      const isPartialCoincide = !isAllCoincide && availableCount > 0;
 
                       // Overlap slot payload for scheduling modal
                       const overlapSlot: OverlapSlot = {
@@ -281,15 +309,13 @@ export const GanttWeeklyView: React.FC<GanttWeeklyViewProps> = ({
                         dateKey: day.dateStr
                       };
 
-                      // Slot background styling matching user screenshot
-                      let slotContainerStyle = 'bg-white border-gray-200';
+                      // Slot background styling:
+                      // Green if ALL match, Yellow if 3, 4 or partial match, Grey if nobody matches.
+                      let slotContainerStyle = 'bg-gray-50/60 border border-gray-200/90';
                       if (isAllCoincide) {
                         slotContainerStyle = 'bg-emerald-50/80 border-2 border-emerald-400 shadow-2xs';
-                      } else if (!isNobodyCoincides) {
-                        // Partial overlap (e.g. 1 or 2 do not coincide) -> Soft yellow with gold border
+                      } else if (isPartialCoincide) {
                         slotContainerStyle = 'bg-[#FFFDF4] border-2 border-[#F4DF77] shadow-2xs';
-                      } else {
-                        slotContainerStyle = 'bg-gray-50/60 border border-gray-200/90';
                       }
 
                       return (
@@ -344,17 +370,31 @@ export const GanttWeeklyView: React.FC<GanttWeeklyViewProps> = ({
                               )}
                             </div>
 
-                            {/* Slot Members List: ONLY showing the members who ARE available! */}
+                            {/* Slot Members List: showing all available participants + missing members with red border */}
                             <div className="space-y-1.5 flex-1 pt-0.5">
                               {availableCount > 0 ? (
-                                activeMembers
-                                  .filter((member) => availableMemberIds.includes(member.id))
-                                  .map((member) => (
-                                    <SlotMemberItem
-                                      key={member.id}
-                                      member={member}
-                                    />
-                                  ))
+                                <>
+                                  {activeMembers
+                                    .filter((member) => availableMemberIds.includes(member.id))
+                                    .map((member) => (
+                                      <SlotMemberItem
+                                        key={member.id}
+                                        member={member}
+                                        isAvailable={true}
+                                      />
+                                    ))}
+                                  {isPartialCoincide && (
+                                    activeMembers
+                                      .filter((member) => unavailableMemberIds.includes(member.id))
+                                      .map((member) => (
+                                        <SlotMemberItem
+                                          key={member.id}
+                                          member={member}
+                                          isAvailable={false}
+                                        />
+                                      ))
+                                  )}
+                                </>
                               ) : (
                                 <div className="h-full flex items-center justify-center p-2 text-center">
                                   <span className="text-[10px] text-gray-400 italic">
