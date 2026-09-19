@@ -268,10 +268,12 @@ export const GanttDailyView: React.FC<GanttDailyViewProps> = ({
                   const unavailableCount = unavailableMemberIds.length;
 
                   // Exact states:
+                  // 1. All coincide: all available -> Verde
+                  // 2. Partial coincide (3, 4 or subset match): availableCount > 0 && < total -> Amarillo
+                  // 3. Nobody coincides: availableCount === 0 -> Grey
                   const isAllCoincide = total > 0 && availableCount === total;
-                  const isOnlyOneMissing = total > 1 && unavailableCount === 1;
                   const isNobodyCoincides = total > 0 && availableCount === 0;
-                  const isPartial = !isAllCoincide && !isOnlyOneMissing && !isNobodyCoincides && availableCount > 0;
+                  const isPartialCoincide = !isAllCoincide && availableCount > 0;
 
                   // Overlap slot payload for scheduling modal
                   const overlapSlot: OverlapSlot = {
@@ -286,12 +288,12 @@ export const GanttDailyView: React.FC<GanttDailyViewProps> = ({
                     dateKey: dateStr
                   };
 
-                  // Slot background styling according to exact user rules:
-                  // Green if ALL match, Yellow ONLY if exactly ONE person does NOT match, otherwise Grey/Neutral.
+                  // Slot background styling:
+                  // Green if ALL match, Yellow if 3, 4 or partial match, Grey if nobody matches.
                   let slotContainerStyle = 'bg-gray-50/60 border border-gray-200/90';
                   if (isAllCoincide) {
                     slotContainerStyle = 'bg-emerald-50/80 border-2 border-emerald-400 shadow-2xs';
-                  } else if (isOnlyOneMissing) {
+                  } else if (isPartialCoincide) {
                     slotContainerStyle = 'bg-[#FFFDF4] border-2 border-[#F4DF77] shadow-2xs';
                   }
 
@@ -345,7 +347,7 @@ export const GanttDailyView: React.FC<GanttDailyViewProps> = ({
                           )}
                         </div>
 
-                        {/* Slot Members List: showing all available participants + missing member if 1 fails */}
+                        {/* Slot Members List: showing all available participants + missing members with red border */}
                         <div className="space-y-1.5 flex-1 pt-0.5">
                           {availableCount > 0 ? (
                             <>
@@ -358,7 +360,7 @@ export const GanttDailyView: React.FC<GanttDailyViewProps> = ({
                                     isAvailable={true}
                                   />
                                 ))}
-                              {isOnlyOneMissing && (
+                              {isPartialCoincide && (
                                 activeMembers
                                   .filter((member) => unavailableMemberIds.includes(member.id))
                                   .map((member) => (
