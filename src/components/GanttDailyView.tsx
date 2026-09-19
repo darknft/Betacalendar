@@ -41,15 +41,50 @@ export const GanttDailyView: React.FC<GanttDailyViewProps> = ({
 
   const activeMembers = members.filter((m) => selectedMemberIds.includes(m.id));
 
-  // Determine hours array (no military hours!)
+  // Determine hours array dynamically based on members' meeting and work slots
   const hoursToDisplay = (() => {
-    if (hoursMode === 'work') {
-      // 8:00 am to 8:00 pm
-      return Array.from({ length: 13 }, (_, i) => i + 8); // 8 to 20
+    if (hoursMode === 'full') {
+      return Array.from({ length: 24 }, (_, i) => i);
     }
-    // 24 hours
-    return Array.from({ length: 24 }, (_, i) => i);
+
+    let minH = 8;
+    let maxH = 20; // 8:00 pm default
+
+    activeMembers.forEach((member) => {
+      const slots = [
+        ...(member.meetingSlots || []),
+        ...(member.saturdaySlots || []),
+        ...(member.sundaySlots || [])
+      ];
+      if (member.meetingStart && member.meetingEnd) {
+        slots.push({ start: member.meetingStart, end: member.meetingEnd });
+      }
+      if (member.workStart && member.workEnd) {
+        slots.push({ start: member.workStart, end: member.workEnd });
+      }
+
+      slots.forEach((s) => {
+        if (s.start) {
+          const startH = parseInt(s.start.split(':')[0], 10);
+          if (!isNaN(startH) && startH < minH) minH = Math.max(0, startH);
+        }
+        if (s.end) {
+          const parts = s.end.split(':');
+          const endH = parseInt(parts[0], 10);
+          const endM = parseInt(parts[1] || '0', 10);
+          if (!isNaN(endH)) {
+            // If end time is e.g. 23:00 or 23:30 (11pm), extend maxH to 23
+            if (endH > maxH) maxH = Math.min(23, endH);
+          }
+        }
+      });
+    });
+
+    return Array.from({ length: maxH - minH + 1 }, (_, i) => minH + i);
   })();
+
+  const startHourLabel = formatHourAmPm(hoursToDisplay[0] ?? 8);
+  const endHourLabel = formatHourAmPm(hoursToDisplay[hoursToDisplay.length - 1] ?? 20);
 
   const dateStr = referenceDate.toISOString().substring(0, 10);
 
@@ -146,9 +181,9 @@ export const GanttDailyView: React.FC<GanttDailyViewProps> = ({
               className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                 hoursMode === 'work' ? 'bg-[#141f5b] text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'
               }`}
-              title="8:00 am a 8:00 pm"
+              title={`Ver rango dinámico (${startHourLabel} - ${endHourLabel})`}
             >
-              8:00 am - 8:00 pm
+              {startHourLabel} - {endHourLabel}
             </button>
             <button
               onClick={() => setHoursMode('full')}
@@ -313,21 +348,20 @@ export const GanttDailyView: React.FC<GanttDailyViewProps> = ({
                           )}
                         </div>
 
-                        {/* Slot Members List: ONLY showing the members who ARE available! */}
+                        {/* Slot Members List: showing all active participants with availability state */}
                         <div className="space-y-1.5 flex-1 pt-0.5">
-                          {availableCount > 0 ? (
-                            activeMembers
-                              .filter((member) => availableMemberIds.includes(member.id))
-                              .map((member) => (
-                                <SlotMemberItem
-                                  key={member.id}
-                                  member={member}
-                                />
-                              ))
+                          {activeMembers.length > 0 ? (
+                            activeMembers.map((member) => (
+                              <SlotMemberItem
+                                key={member.id}
+                                member={member}
+                                isAvailable={availableMemberIds.includes(member.id)}
+                              />
+                            ))
                           ) : (
                             <div className="h-full flex items-center justify-center p-3 text-center">
                               <span className="text-[11px] text-gray-400 italic">
-                                Nadie disponible
+                                Sin miembros seleccionados
                               </span>
                             </div>
                           )}
