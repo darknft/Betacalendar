@@ -34,16 +34,10 @@ export const INITIAL_MEMBERS: Member[] = [
     ],
     saturdaySlots: [],
     sundaySlots: [],
-    role: 'admin',
+    role: 'member',
     avatarSeed: 'sofia',
     avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
     busySlots: [
-      {
-        start: `${getFormattedDay(0)}T15:00:00Z`, // 09:00 AM SV
-        end: `${getFormattedDay(0)}T16:00:00Z`,   // 10:00 AM SV
-        title: 'Daily Standup & Sync',
-        source: 'google_calendar'
-      },
       {
         start: `${getFormattedDay(1)}T17:00:00Z`,
         end: `${getFormattedDay(1)}T18:00:00Z`,
@@ -61,7 +55,7 @@ export const INITIAL_MEMBERS: Member[] = [
   },
   {
     id: 'b56ea21f-11ca-4921-9988-2e34a1b2c890',
-    auth_id: 'auth_usr_pamela_member_02',
+    auth_id: 'auth_usr_pamela_admin_02',
     firstName: 'Pamela',
     lastName: 'Medina',
     email: 'bpamelamedina@gmail.com',
@@ -73,17 +67,16 @@ export const INITIAL_MEMBERS: Member[] = [
     workStart: '09:00',
     workEnd: '18:00',
     meetingStart: '08:00',
-    meetingEnd: '22:00',
+    meetingEnd: '23:00',
     meetingSlots: [
-      { start: '08:00', end: '09:00' },
-      { start: '10:00', end: '12:00' },
-      { start: '17:00', end: '22:00' }
+      { start: '08:00', end: '12:00' },
+      { start: '17:00', end: '23:00' }
     ],
     saturdaySlots: [
       { start: '10:00', end: '12:00' }
     ],
     sundaySlots: [],
-    role: 'member',
+    role: 'admin',
     avatarSeed: 'pamela',
     avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
     busySlots: [
